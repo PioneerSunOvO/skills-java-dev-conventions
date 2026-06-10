@@ -8,8 +8,8 @@ description: >-
   版本无关核心（分层、注解排列、长行换行、注释、N+1 底线）跨项目/JDK/Spring 代际不变；
   版本相关条目见 versions.md 分支对照。
   适用于新增或重构 Controller/Service/Mapper、编写 SQL/XML、代码审查、
-  Spring Boot 2→3 迁移，或用户提到 Java 规范、分层、MyBatis、注释规范时。
-  项目 CLAUDE.md、AGENTS.md、.cursor/rules 优先于本 skill。
+  写 Git 提交说明、提交代码，或用户提到 Java 规范、分层、MyBatis、注释规范、
+  提交风格时。项目 CLAUDE.md、AGENTS.md、.cursor/rules 优先于本 skill。
 ---
 
 # Java 开发约束
@@ -45,7 +45,8 @@ description: >-
 4. 写实现          → architecture.md + data-access.md（按画像选 API）
 5. 方法结构        → method-structure.md（步骤分块、按块分层、按需抽私有方法）
 6. 补注释          → comments.md（五层注释、去 AI/机翻味自检）
-7. 交付自检        → pitfalls.md 清单
+7. 写提交说明      → 本节「Git 提交说明」+ examples.md 提交示例（用户要求提交时）
+8. 交付自检        → pitfalls.md 清单
 ```
 
 **第 1 步不可跳过**：画像未明确前，不生成高版本语法、jakarta 包名或项目未使用的持久层 API。
@@ -150,6 +151,62 @@ CollectionUtils.isEmpty(list)            // collections4（以项目为准）
 
 注释分五层：类 → 方法 Javadoc → **步骤分块**（`// 动词+对象+边界`，块间空一行）→ 块内行注释 → 字段。模板见 [method-structure.md](method-structure.md)、[comments.md](comments.md)。
 
+## Git 提交说明（magApi）
+
+提交说明面向**业务可读**：领导与非后端同事能看懂「改了什么、解决什么问题」，不必懂实现细节。与代码注释规范互补，不互相替代。
+
+### 标题格式
+
+```
+<type>(<模块>): <一句话说明业务结果>
+```
+
+| 字段 | 要求 |
+|------|------|
+| `type` | `feat` 新能力；`fix` 修 bug；`refactor` 行为不变的重构；`perf` 性能优化 |
+| `模块` | 中文业务域：`订单`、`来款`、`对账`、`结算`、`发行计划`、`全局异常` 等 |
+| 一句话 | 说清**用户/业务侧变化**，不写类名、不写技术方案 |
+
+### 正文格式
+
+有**两项及以上**独立改动时，正文用**编号列表**分条（优先 `1. 2. 3.`）：
+
+```
+1. <具体能力或规则变化>
+2. <第二条>
+3. <第三条>
+```
+
+单点、偏技术的小改动可用 `-` 列表。每条回答：**做了什么 → 带来什么效果**，不要复述 diff 行号。
+
+### 用语要求
+
+| 推荐 | 避免 |
+|------|------|
+| 自动同步汇总表、按明细重算 | AOP、切面、注解驱动 |
+| 新增汇总表、便于列表和统计查询 | 冗余表、物化视图 |
+| 一次关联查询、减少两步查询 | EXISTS、IN 列表、N+1（除非读者是开发且必要） |
+| 订单保存、修改、删除、作废 | save/update/remove 等方法名堆砌 |
+| 管理端全量重建接口、历史数据补算 | rebuildAll、游标批处理 |
+
+**可保留**：表名（`imo_magorder_subscribe_summary`）、接口路径（`/onlineRefund`）、业务字段（`moType=11`）——便于对号入座。
+
+### 撰写流程
+
+1. `git diff` / `git diff --cached` 看清改动范围
+2. 定 `type` 与 `模块`（以主要影响面为准）
+3. 标题写**一条最重要的业务结果**
+4. 正文按**独立能力**拆条；Mapper XML 与 Java 属同一功能时写在同一条或同一 commit
+5. 用户要求「先看一下 message 再提交」时，**先展示全文，确认后再 `git commit`**
+
+### 提交范围
+
+- 用户指定「只提交 Java」时，仍须提醒：配套 `Mapper.xml` 未提交会导致运行失败
+- 不提交：`.env`、密钥、`application-*.yml` 中的敏感项、无关 docx（除非用户明确要求）
+- 未要求不主动 commit；遵循仓库 `committing-changes-with-git` 规则
+
+正反例与模板见 [examples.md#git-提交说明示例](examples.md#git-提交说明示例)。
+
 ## 交付前自检
 
 ```
@@ -164,6 +221,7 @@ CollectionUtils.isEmpty(list)            // collections4（以项目为准）
 [ ] 注释无 AI/机翻味；与邻类风格一致
 [ ] 同类声明处多注解已按文本从短到长排列（见 coding-patterns.md）
 [ ] 未改敏感配置、未升依赖、未动用户未要求的模块
+[ ] 提交说明（若需提交）：标题业务可读、正文编号分条、无 AOP/切面等专业术语堆砌
 ```
 
 完整清单：[pitfalls.md](pitfalls.md)。
@@ -179,7 +237,7 @@ CollectionUtils.isEmpty(list)            // collections4（以项目为准）
 | [method-structure.md](method-structure.md) | 步骤分块模板、按块分层、私有方法抽取 |
 | [coding-patterns.md](coding-patterns.md) | 判空工具、Stream、MapStruct、注解排列、Service/AOP 习惯 |
 | [pitfalls.md](pitfalls.md) | 陷阱表、AI 代码气味、交付清单 |
-| [examples.md](examples.md) | 版本探测、语法降级、步骤分块、MapStruct 示例 |
+| [examples.md](examples.md) | 版本探测、语法降级、步骤分块、MapStruct、Git 提交示例 |
 
 ## 跨项目复用
 

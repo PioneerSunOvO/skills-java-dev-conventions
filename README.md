@@ -7,6 +7,7 @@
 - 分层边界：Controller / Service / Mapper、Param/DTO 入参、VO 出参
 - 版本无关核心：注解从短到长排列、长行换行、步骤分块、五层中文注释
 - 版本自适应：通过 `versions.md` 探测 JDK、javax/jakarta、持久层与文档注解体系
+- Git 提交说明：标题 `type(模块)`、正文编号分条、通俗中文（见 `SKILL.md` 与 `examples.md`）
 - 交付自检：`pitfalls.md` 清单
 
 ## 安装
@@ -65,7 +66,7 @@ comments.md           # 五层注释规范
 method-structure.md   # 方法步骤分块
 data-access.md        # SQL/XML 与分页
 pitfalls.md           # 陷阱与交付清单
-examples.md           # 示例
+examples.md           # 示例（含 Git 提交说明正反例）
 ```
 
 ## 与项目规则的关系
