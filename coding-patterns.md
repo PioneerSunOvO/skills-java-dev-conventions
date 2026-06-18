@@ -1,6 +1,10 @@
 # 编码习惯速查
 
-跨项目通用。类注释模板见 [comments.md](comments.md)；具体包名、基类以邻代码为准。
+跨项目通用的 Java 后端习惯。具体包名、基类、工具类以**当前仓库邻代码**为准；与项目 `CLAUDE.md` / rules 冲突时服从项目。
+
+## 类注释
+
+标准三要素与变体见 [comments.md#类注释硬性](comments.md)。切面类须在类注释说明与事务、幂等相关的边界。
 
 ## 判空与工具类
 
@@ -91,11 +95,7 @@ public interface OrderConvert {
 
 ## 方法结构
 
-- 方法 Javadoc：职责 + `@param` / `@return`
-- 方法体：步骤分块，`// 动词+对象+边界`，块间空一行
-- 块内：复杂口径补单行 `//`
-
-详见 [method-structure.md](method-structure.md)、[comments.md](comments.md)。
+见 [comments.md](comments.md)（分级表、Javadoc、步骤分块）与 [method-structure.md](method-structure.md)（编排与私有方法抽取）。
 
 ## 注解排列
 
