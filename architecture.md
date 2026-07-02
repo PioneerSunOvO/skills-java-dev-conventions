@@ -89,7 +89,7 @@ MapStruct 进阶示例见 [coding-patterns.md](coding-patterns.md)。
 | `Dto` | 入参对象 |
 | `Vo` | 出参对象 |
 | `PageParam` | 分页入参 |
-| `Convert` | 对象转换 |
+| `Convert` | 对象转换（MapStruct 转换类统一 `*Convert` 后缀） |
 
 类名用业务单数名词；方法名用动词或动宾短语，与现有模块保持一致。
 

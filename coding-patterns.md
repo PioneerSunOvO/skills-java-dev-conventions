@@ -51,6 +51,7 @@ public interface OrderConvert {
 }
 ```
 
+- 转换类命名统一使用 `*Convert` 后缀（如 `OrderConvert`），不使用 `*Converter`、`*MapperStruct` 等变体
 - 列表不同映射目标：`@Named` + `@BeanMapping(qualifiedByName = ...)`
 - 枚举展示名：`@Mapping(expression = "java(...)")` + `@Mapper(imports = {...})`
 - 多表 VO：**Mapper XML 一次查出**，不在 Service 循环拼
@@ -66,6 +67,12 @@ public interface OrderConvert {
 | 审计字段 | 按项目：MetaObjectHandler 或 Service 手动赋值 |
 | 批处理容错 | 单条 catch + log.error，注释说明续跑策略 |
 | 同类自调用 | 注入自身代理，保证 AOP / 事务生效 |
+
+## 异常捕获与堆栈
+
+- `try-catch` 统一捕获 `Exception`，不捕获具体子异常（除非项目或用户明确指定）
+- 捕获后使用异常工具类打印完整堆栈，例如 `ExceptionUtils.printRootCauseStackTrace(e)`
+- 禁止只记录 `e.getMessage()` 或吞掉堆栈，避免排障信息缺失
 
 ## AOP 与副作用
 

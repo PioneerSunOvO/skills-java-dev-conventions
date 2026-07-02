@@ -4,10 +4,10 @@
 
 ## 步骤分块标杆（通用模板）
 
-- 方法 Javadoc：见 [comments.md#方法-javadoc](comments.md)
+- 方法 Javadoc：见 [comments.md#方法-javadoc](comments.md)（首句职责 + 口径句 + 业务化 `@param`/`@return`）
 - 体内：每步一行 `//` 总注释 → 本步代码 → **空一行** → 下一步
-- 总注释：**动词 + 对象 + 边界/跳过条件**
-- 块内复杂分支再补单行 `//`
+- 总注释默认 **动词 + 对象**；本步含分支口径时用冒号展开
+- 块内机械循环/判空不必逐步注释；口径、幂等、并发处再补单行 `//`
 
 **何时必须分块、何时豁免** → [comments.md#步骤分块触发条件与豁免](comments.md)
 
@@ -42,6 +42,42 @@ public void afterSuccess(JoinPoint joinPoint, BusinessMarker marker) {
             syncService.rebuildById(id);
         }
     }
+}
+```
+
+## 步骤分块标杆（编排方法）
+
+```java
+/**
+ * 组装报表节点（固定仅 pid 下一级）。
+ * 自办、邮局数量在业务层按 catId+ISBN 合并；itmId 与 ISBN 的对应关系也在业务层处理。
+ *
+ * @param param 查询参数
+ * @return 带 reportData 的分类节点及末尾合计行
+ */
+private List<StatCatalogTreeVo> buildViewReportNodes(MagOrderViewReportParam param) {
+    // 确定本次统计涉及的分类范围
+    List<StatCatalog> levelCatalogList = resolveTargetCatalogs(param);
+    if (CollectionUtils.isEmpty(levelCatalogList)) {
+        return Collections.emptyList();
+    }
+
+    // 提取本级分类 ID
+    List<Long> levelCatIds = extractCatIds(levelCatalogList);
+    // 确定自办订单区域条件：pid=0 用 catId IN，pid≠0 用父级 fullid 匹配 catidArray
+    OrderQueryScope orderScope = resolveOrderQueryScope(parentCatId, levelCatalogList, parentCatalog);
+
+    // 加载本级分类的年份统计数据
+    ViewReportYearStats yearStats = loadYearStats(...);
+    // 汇总本级分类的年份统计数据
+    Map<Long, MagOrderViewReportDataVo> reportByCatId = aggregateReportByCat(levelCatIds, yearStats);
+
+    // 组装报表节点
+    List<StatCatalogTreeVo> nodes = buildStatCatalogNodes(...);
+    // 添加合计行
+    nodes.add(buildTotalRow(...));
+
+    return nodes;
 }
 ```
 
@@ -184,7 +220,7 @@ public boolean save(OrderDto dto) {
 |----------|--------------------------|
 | 类 | `@description` 或首行 + 关键边界 |
 | 公开方法 | 多行 Javadoc + `@param` / `@return` |
-| 步骤块 | `// 动词+对象+边界`；块间空一行 |
+| 步骤块 | `// 动词+对象`；有分支口径时用冒号展开；块间空一行 |
 | 块内 | 复杂分支、口径补单行 `//` |
 
 ## 常见陷阱

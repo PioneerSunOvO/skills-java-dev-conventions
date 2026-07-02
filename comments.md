@@ -23,7 +23,7 @@
 | **`@Override` 实现** | 实现有**超出接口**的边界时必须补 | 接口 Javadoc 已完整时可不重复 | 纯转发且无语义增量 |
 | **`@ExceptionHandler` / `@Bean`** | 多行 Javadoc：处理什么、返回什么 | — | — |
 | **MapStruct 接口方法** | `toXxx`、含业务拼装的 `default` / `@AfterMapping` | 纯字段映射可依赖类注释 | 生成类 `*Impl` 不手写 |
-| **私有方法** | — | 口径不直观、≥15 行、抽出的 `validate*` / `build*` | `trim`、`append` 等机械辅助 |
+| **私有方法** | — | 口径不直观、≥15 行、抽出的 `validate*` / `build*`；承载业务口径/分支规则/数据转换时写 Javadoc | `trim`、`append` 等机械辅助 |
 | **字段** | 见下文「字段注释范围」 | Entity / DTO 与邻类、同域 VO 对齐 | 含义已由类注释完全覆盖的简单 VO |
 | **枚举常量** | 业务枚举每个常量 | 技术枚举（如 ES 字段类型）写用途 | 纯占位枚举 |
 
@@ -40,11 +40,11 @@
 
 | 层级 | 形式 | 写什么 |
 |------|------|--------|
-| **类** | `@description` + `@author` + `@since` | 职责 + 关键边界（事务、幂等、口径） |
-| **方法** | 标准多行 `/** ... */` | 整段做什么、触发条件、返回值；`@param` / `@return` |
-| **步骤块** | `// 动词+对象+边界` | 本步目的；不满足时怎么办；**块间空一行** |
-| **块内行** | `//` 单行 | 口径、单位、分支原因、并发/幂等 |
-| **字段** | `/** ... */` | 业务含义、单位、与外部系统对应 |
+| **类** | `@description` + `@author` + `@since` | 职责 + 关键边界（事务、幂等、口径、跨层处理位置） |
+| **方法** | 标准多行 `/** ... */` | 做什么、口径/约束；`@param` / `@return` 写业务含义 |
+| **步骤块** | `// 动词+对象` | 本步目的；有分支口径时用冒号展开；**块间空一行** |
+| **块内行** | `//` 单行 | 口径、单位、分支原因、并发/幂等（仅复杂处补） |
+| **字段** | `/** ... */` | 业务含义、单位、条件展示规则 |
 
 **禁止**：
 
@@ -59,12 +59,52 @@
 
 ### 必须包含
 
-- 第一句：完整职责（不只重复方法名）
-- 第二句（如有）：边界、前置状态、幂等/跳过条件
-- `@param`：参数的业务含义（无业务参数可省略，如部分 `@Bean`）
-- `@return`：返回什么、空 / 0 代表什么（`void` 不写 `@return`，副作用写在正文）
+- 第一句：动词短语 + 可选（范围/约束），不只重复方法名
+- 第二句（如有）：口径、归并规则、跨接口一致性、幂等/跳过条件
+- `@param`：参数的业务含义与取值约定，不必复述类型
+- `@return`：结构、口径或转换结果；空 / 0 代表什么；可用 `→`（`void` 不写 `@return`，副作用写在正文）
+
+### 写法骨架
+
+| 行 | 写什么 | 示例 |
+|----|--------|------|
+| 第一句 | 动词短语 + 可选（范围/约束） | `组装报表节点（固定仅 pid 下一级）。` |
+| 第二句（如有） | 口径、归并规则、跨接口一致性、处理层级 | `自办、邮局数量在业务层按 catId+ISBN 合并；itmId 与 ISBN 的对应关系也在业务层处理。` |
+| `@param` | 业务含义与取值约定 | `含 pid、year、moTypes` / `pid≠0 时的父级分类，pid=0 传 null` |
+| `@return` | 结构、口径或转换结果 | `带 reportData 的分类节点及末尾合计行` / `catId#isbn → 数量` |
+
+### 标杆对照
 
 ```java
+/**
+ * 查询统计分类报表。
+ * 固定返回 pid 下一级分类节点，末尾追加合计行；无权限或无数时对应字段为 0。
+ *
+ * @param param 含 pid、year、moTypes
+ * @return 本级分类节点列表（含 reportData、hasNext）
+ */
+public List<StatCatalogTreeVo> viewReport(MagOrderViewReportParam param) { ... }
+
+/**
+ * 组装报表节点（固定仅 pid 下一级）。
+ * 自办、邮局数量在业务层按 catId+ISBN 合并；itmId 与 ISBN 的对应关系也在业务层处理。
+ *
+ * @param param 查询参数
+ * @return 带 reportData 的分类节点及末尾合计行
+ */
+private List<StatCatalogTreeVo> buildViewReportNodes(MagOrderViewReportParam param) { ... }
+
+/**
+ * 解析自办订单区域过滤条件，口径与 getPageList 一致。
+ * pid=0 使用 catId IN 本级列表；pid≠0 使用父级 fullid 作 catidArray 前缀。
+ *
+ * @param parentCatId      请求参数 pid
+ * @param levelCatalogList 本级分类列表
+ * @param parentCatalog    pid≠0 时的父级分类，pid=0 传 null
+ * @return 自办统计 SQL 用的区域条件
+ */
+private OrderQueryScope resolveOrderQueryScope(...) { ... }
+
 /**
  * 业务成功后解析上下文，按配置执行同步或清理。
  *
@@ -121,9 +161,16 @@ public void rebuildById(Long id) { ... }
 
 1. 每步块首一行 `//` 总注释
 2. **块与块之间空一行**
-3. 格式：**动词 + 对象 + 边界/跳过条件**
+3. 默认 **动词 + 对象**；本步含分支口径时用冒号展开
 4. 不用 `----` 装饰线
-5. 块内复杂时补单行注释
+5. 块内机械循环/判空不必逐步注释；口径、幂等、并发处有信息增量时再补单行 `//`
+
+### 步骤注释两级
+
+| 级别 | 何时用 | 格式 | 示例 |
+|------|--------|------|------|
+| **简** | 步骤意图一目了然 | `// 动词+对象` | `// 加载本级分类的年份统计数据` |
+| **详** | 本步含分支口径或跨层约定 | `// 动词+对象：条件A 用…，条件B 用…` | `// 确定自办订单区域条件：pid=0 用 catId IN，pid≠0 用父级 fullid 匹配 catidArray` |
 
 ```java
 public void afterSuccess(JoinPoint joinPoint, BusinessMarker marker) {
@@ -145,11 +192,41 @@ public void afterSuccess(JoinPoint joinPoint, BusinessMarker marker) {
 }
 ```
 
+编排型方法（如 `build*`、`export*`）示例：
+
+```java
+private List<StatCatalogTreeVo> buildViewReportNodes(MagOrderViewReportParam param) {
+    // 确定本次统计涉及的分类范围
+    List<StatCatalog> levelCatalogList = resolveTargetCatalogs(param);
+    if (CollectionUtils.isEmpty(levelCatalogList)) {
+        return Collections.emptyList();
+    }
+
+    // 提取本级分类 ID
+    List<Long> levelCatIds = extractCatIds(levelCatalogList);
+    // 确定自办订单区域条件：pid=0 用 catId IN，pid≠0 用父级 fullid 匹配 catidArray
+    OrderQueryScope orderScope = resolveOrderQueryScope(parentCatId, levelCatalogList, parentCatalog);
+
+    // 加载本级分类的年份统计数据
+    ViewReportYearStats yearStats = loadYearStats(...);
+    // 汇总本级分类的年份统计数据
+    Map<Long, MagOrderViewReportDataVo> reportByCatId = aggregateReportByCat(levelCatIds, yearStats);
+
+    // 组装报表节点
+    List<StatCatalogTreeVo> nodes = buildStatCatalogNodes(...);
+    // 添加合计行
+    nodes.add(buildTotalRow(...));
+
+    return nodes;
+}
+```
+
 ### 步骤注释：好 vs 差
 
 | 好 | 差 |
 |----|-----|
-| `// 解析条件表达式，不通过则不执行` | `// 解析 condition` |
+| `// 确定自办订单区域条件：pid=0 用 catId IN，pid≠0 用父级 fullid 匹配 catidArray` | `// 解析 condition` |
+| `// 解析条件表达式，不通过则不执行` | `// 解析` |
 | `// 无记录或无明细时清空衍生数据` | `// 判断订单` |
 | `// 先删后插，保证与源数据一致` | `// 保存数据` |
 | `// 用待支付状态作更新条件，防并发重复` | `// 更新状态` |
@@ -166,13 +243,14 @@ public void afterSuccess(JoinPoint joinPoint, BusinessMarker marker) {
 
 ```java
 /**
- * @description: 业务同步切面；方法正常返回后触发，抛异常则不同步
- * @author: 开发者
- * @since: 2026-06-09 14:19
+ * @description: 统计分类报表服务；自办读征订汇总、邮局读发行计划，区域过滤与订单列表 getPageList 一致。
+ *              查询与导出均固定 pid 下一级；数量在业务层按 catId+ISBN 归并，itmId 与 ISBN 在业务层换算。
+ * @author: Codex
+ * @since: 2026-06-30 18:30
  */
 ```
 
-复杂类可在 `@description` 或首行补充边界，例如「切面 Order 设在事务拦截器内侧」。
+复杂类可在 `@description` 或首行用分号衔接多句边界，例如「切面 Order 设在事务拦截器内侧」。
 
 `@description` 为空视为不合格。禁止写「查询、更新、删除」功能列表。
 
@@ -183,6 +261,15 @@ public void afterSuccess(JoinPoint joinPoint, BusinessMarker marker) {
 ```java
 /** 金额，单位：分 */
 /** 外部流水号，与第三方支付 out_trade_no 一致 */
+```
+
+### 常量与静态字段
+
+业务常量、枚举旁写**含义 + 条件展示**，一行即可：
+
+```java
+/** 列表末尾合计行名称；pid≠0 时展示为「父级名称+合计」 */
+private static final String TOTAL_ROW_NAME = "合计";
 ```
 
 ### 必须写字段注释的类型
@@ -274,7 +361,10 @@ default void afterToDocument(...) { ... }
 ## 语气与排版
 
 - 短句、直说；术语不硬翻（DTO、SpEL、幂等保留英文）
-- 中英空格：`按 orderId 幂等更新`
+- 多句 Javadoc 用分号衔接相关事实，不必强行拆段
+- 范围约束放括号：`（固定仅 pid 下一级）`、`（含 reportData、hasNext）`
+- 数据转换可用箭头：`catId+ISBN → 数量`、`itmId → ISBN`
+- 中英空格：`按 orderId 幂等更新`、`pid≠0 时`
 - 全角标点用于中文句子
 - 去 AI 味、去机翻味（见下表）
 
@@ -339,6 +429,14 @@ public void rebuildById(Long id) {
 /**
  * 支付回调处理；同一 outTradeNo 重复通知时幂等返回，不重复更新订单状态。
  */
+```
+
+### 步骤注释由简到详
+
+```java
+// 前：// 查数据
+// 后：// 加载本级分类的年份统计数据
+// 更后（有分支时）：// 确定自办订单区域条件：pid=0 用 catId IN，pid≠0 用父级 fullid 匹配 catidArray
 ```
 
 ## 正反例

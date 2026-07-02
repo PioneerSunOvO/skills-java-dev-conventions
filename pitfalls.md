@@ -29,6 +29,8 @@
 | 空 catch | 至少 log.warn/error |
 | 业务失败只 `return false` 无说明 | 抛 `BusinessException` 或返回明确错误码 |
 | `log.info` 打大对象/敏感信息 | 脱敏；密钥永不落日志 |
+| 只捕获子异常导致漏捕 | `try-catch` 默认捕获 `Exception`，有明确约束再细分 |
+| 只打 `e.getMessage()` 无堆栈 | 用工具类打印完整堆栈（如 `ExceptionUtils.printRootCauseStackTrace(e)`）并保留错误上下文 |
 
 ## 四、SQL 与性能
 
@@ -139,6 +141,8 @@
 - [ ] 空值/集合判空方式与项目一致
 - [ ] 业务异常用项目统一异常类
 - [ ] 日志带上下文，异常保留堆栈
+- [ ] `try-catch` 默认捕获 `Exception`，未遗漏异常分支
+- [ ] 异常日志包含完整堆栈（可用 `ExceptionUtils.printRootCauseStackTrace(e)`）
 
 ### 注释与类头
 

@@ -103,6 +103,8 @@ CollectionUtils.isEmpty(list)            // collections4（以项目为准）
 - 可预期业务失败：`throw new BusinessException("简短中文")`（或项目等价类）
 - 禁止空 `catch`、禁止 `catch` 后 `return null` 吞异常
 - `@Slf4j`；`log.error("说明, key={}", val, e)` 保留堆栈；禁止 `System.out` / `printStackTrace`
+- `try-catch` 统一捕获 `Exception`，不捕获具体子异常（除非项目或用户明确指定）
+- 捕获后需使用异常工具类打印完整堆栈（如 `ExceptionUtils.printRootCauseStackTrace(e)`），禁止只打印 `e.getMessage()`
 
 ### 事务
 

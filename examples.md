@@ -276,6 +276,31 @@ public ApiResult<List<OrderVo>> suggest(@Valid OrderSuggestParam param) {
 }
 ```
 
+### 润色 6：报表编排注释（类 / 方法 / 步骤）
+
+**类注释：**
+
+```java
+// 前：该类用于处理统计报表相关的业务逻辑。
+// 后：@description: 统计分类报表服务；自办读征订汇总、邮局读发行计划，区域过滤与订单列表 getPageList 一致。
+//     查询与导出均固定 pid 下一级；数量在业务层按 catId+ISBN 归并，itmId 与 ISBN 在业务层换算。
+```
+
+**方法 Javadoc：**
+
+```java
+// 前：该方法用于组装报表节点数据。
+// 后：组装报表节点（固定仅 pid 下一级）。
+//     自办、邮局数量在业务层按 catId+ISBN 合并；itmId 与 ISBN 的对应关系也在业务层处理。
+```
+
+**步骤注释：**
+
+```java
+// 前：// 解析
+// 后：// 确定自办订单区域条件：pid=0 用 catId IN，pid≠0 用父级 fullid 匹配 catidArray
+```
+
 ---
 
 ## 步骤分块示例（切面方法）
