@@ -387,8 +387,8 @@ public void rebuildById(Long id) {
 /**
  * 查询复合列表，含当期数据、历史关联及统计数量。
  *
- * @param param 查询条件
- * @return 组装后的列表
+ * @param param 含 year、分类筛选条件
+ * @return 按分类组装后的列表
  */
 public List<CatalogVo> getList(QueryParam param) {
     // 解析查询范围
@@ -401,8 +401,7 @@ public List<CatalogVo> getList(QueryParam param) {
     // 加载跨期关联数据
     List<ItemVo> allItems = baseMapper.selectItemsByYears(year, year - 1);
 
-    // 构建历史关联索引
-    // 取当期与主数据的交集键，再关联历史记录
+    // 历史记录映射：按当期与主数据的交集键关联
     Map<Long, ItemVo> historyItemMap = buildHistoryMap(allItems, currentItems, year);
 
     // 查询历史统计数量
@@ -417,7 +416,7 @@ public List<CatalogVo> getList(QueryParam param) {
 }
 ```
 
-分块规则见 [method-structure.md](method-structure.md)。
+分块规则见 [comments.md#步骤分块](comments.md#步骤分块)；并行查询见 [comments.md#多路并行查询示例](comments.md#多路并行查询示例)。
 
 ---
 

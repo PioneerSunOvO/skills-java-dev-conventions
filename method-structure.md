@@ -4,12 +4,10 @@
 
 ## 步骤分块标杆（通用模板）
 
-- 方法 Javadoc：见 [comments.md#方法-javadoc](comments.md)（首句职责 + 口径句 + 业务化 `@param`/`@return`）
+- 方法 Javadoc、步骤块写法、占位词禁用法 → [comments.md](comments.md)（权威）
 - 体内：每步一行 `//` 总注释 → 本步代码 → **空一行** → 下一步
-- 总注释默认 **动词 + 对象**；本步含分支口径时用冒号展开
-- 块内机械循环/判空不必逐步注释；口径、幂等、并发处再补单行 `//`
 
-**何时必须分块、何时豁免** → [comments.md#步骤分块触发条件与豁免](comments.md)
+**何时必须分块、何时豁免** → [comments.md#步骤分块](comments.md#步骤分块)
 
 ```java
 /**
@@ -47,33 +45,35 @@ public void afterSuccess(JoinPoint joinPoint, BusinessMarker marker) {
 
 ## 步骤分块标杆（编排方法）
 
+范本 A（多阶段 `build*`）完整示例见 [comments.md#范本-a编排型-build多阶段查询--汇总--组装](comments.md#范本-a编排型-build多阶段查询--汇总--组装)。
+
 ```java
 /**
- * 组装报表节点（固定仅 pid 下一级）。
- * 自办、邮局数量在业务层按 catId+ISBN 合并；itmId 与 ISBN 的对应关系也在业务层处理。
+ * 组装报表节点（固定仅 parentId 下一级）。
+ * A、B 两类数量在业务层按 catId+业务键合并。
  *
- * @param param 查询参数
- * @return 带 reportData 的分类节点及末尾合计行
+ * @param param 含 parentId、year、筛选类型列表
+ * @return 带 reportData 的节点列表及末尾合计行
  */
-private List<StatCatalogTreeVo> buildViewReportNodes(MagOrderViewReportParam param) {
+private List<ReportTreeVo> buildReportNodes(ReportQueryParam param) {
     // 确定本次统计涉及的分类范围
-    List<StatCatalog> levelCatalogList = resolveTargetCatalogs(param);
-    if (CollectionUtils.isEmpty(levelCatalogList)) {
+    List<CatalogVo> levelList = resolveTargetCatalogs(param);
+    if (CollectionUtils.isEmpty(levelList)) {
         return Collections.emptyList();
     }
 
-    // 提取本级分类 ID
-    List<Long> levelCatIds = extractCatIds(levelCatalogList);
-    // 确定自办订单区域条件：pid=0 用 catId IN，pid≠0 用父级 fullid 匹配 catidArray
-    OrderQueryScope orderScope = resolveOrderQueryScope(parentCatId, levelCatalogList, parentCatalog);
+    // 提取本级 ID
+    List<Long> levelIds = extractIds(levelList);
+    // 确定区域条件：parentId=0 用 catId IN，parentId≠0 用父级 fullId 前缀匹配
+    QueryScope queryScope = resolveQueryScope(...);
 
-    // 加载本级分类的年份统计数据
-    ViewReportYearStats yearStats = loadYearStats(...);
-    // 汇总本级分类的年份统计数据
-    Map<Long, MagOrderViewReportDataVo> reportByCatId = aggregateReportByCat(levelCatIds, yearStats);
+    // 加载本级年份统计数据
+    YearStats yearStats = loadYearStats(...);
+    // 按本级 ID 汇总统计数据
+    Map<Long, ReportDataVo> reportById = aggregateByCatalog(levelIds, yearStats);
 
     // 组装报表节点
-    List<StatCatalogTreeVo> nodes = buildStatCatalogNodes(...);
+    List<ReportTreeVo> nodes = buildNodes(...);
     // 添加合计行
     nodes.add(buildTotalRow(...));
 
@@ -216,21 +216,19 @@ public boolean save(OrderDto dto) {
 
 ## 与注释的配合
 
-| 结构元素 | 要求（详见 comments.md） |
-|----------|--------------------------|
-| 类 | `@description` 或首行 + 关键边界 |
-| 公开方法 | 多行 Javadoc + `@param` / `@return` |
-| 步骤块 | `// 动词+对象`；有分支口径时用冒号展开；块间空一行 |
-| 块内 | 复杂分支、口径补单行 `//` |
+步骤块、Javadoc、占位词、并行查询模板均以 [comments.md](comments.md) 为准。本文只保留结构要点：
+
+- 公开方法：多行 Javadoc + 步骤分块（已触发条件时）
+- 块间空一行；不用 `----` 装饰线
+- 复杂分支在块内补单行 `//`
 
 ## 常见陷阱
 
 | 陷阱 | 对策 |
 |------|------|
-| 只有 Javadoc、体内无分块（已触发条件） | 补步骤注释与块间空行 |
-| 步骤注释只有名词无边界 | 补「不通过则…」「无数据则…」 |
-| 块间无空行 | 每步后空一行 |
+| 只有 Javadoc、体内无分块（已触发条件） | [comments.md#步骤分块](comments.md#步骤分块) |
+| 占位词（下面 / 补齐 / 构建索引） | [comments.md#占位词禁用法](comments.md#占位词禁用法) |
 | 给一行 Controller 委托也写步骤块 | 不必，见上文豁免场景 |
-| 复杂逻辑无块内注释 | 在 if/循环/计算处补口径 |
+| 过度抽私有方法 | 只抽重复或难一眼读懂的块 |
 
 更多见 [pitfalls.md](pitfalls.md)。
