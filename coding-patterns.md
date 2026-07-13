@@ -8,38 +8,115 @@
 
 ## 判空与工具类
 
-动手前看邻文件 import；新代码优先：
+> **硬性**：新代码禁止 `== null` / `!= null` 判对象；禁止对可能 null 的集合直接 `.isEmpty()`。动手前看邻文件 import，包名跟邻类。
 
-| 场景 | 推荐 | 老代码常见（改时对齐邻段） |
-|------|------|---------------------------|
-| 对象 null | `Objects.isNull()` / `Objects.nonNull()` | `== null`、Hutool `ObjectUtil` |
-| 字符串空白 | `commons-lang3` 的 `StringUtils` | 持久层框架自带 `StringUtils` |
-| 集合空 | `collections4` 的 `CollectionUtils` | `collections` 老包 |
-| 查无则抛 | `Optional.ofNullable(x).orElseThrow(...)` | 多层 if |
-| 等值比较 | `Objects.equals(a, b)` | 手写 null 判断 |
+### 场景对照
+
+| 场景 | 必须用 | 禁止 |
+|------|--------|------|
+| 对象 null | `Objects.isNull()` / `Objects.nonNull()` | `== null`、`!= null` |
+| 字符串空白 | `commons-lang3` 的 `StringUtils.isBlank()` / `isNotBlank()` | `str == null \|\| str.isEmpty()`、持久层自带 `StringUtils`（新代码不用） |
+| 集合/Map 空 | `CollectionUtils.isEmpty()` / `isNotEmpty()` | `list == null \|\| list.isEmpty()`、`map.size() == 0` |
+| 等值比较 | `Objects.equals(a, b)` | `a != null && a.equals(b)` |
+| 查无则抛 | `Optional.ofNullable(x).orElseThrow(...)` | `if (x == null) throw …` 多层嵌套 |
+| 查无给默认 | `Optional.ofNullable(x).orElse(def)` | 冗长三元（简单字面量三元可保留） |
+
+老代码常见 `== null`、Hutool `ObjectUtil`、MyBatis `StringUtils`——**改邻段时对齐邻段**；**新写片段**仍用上表。
+
+### 示例
 
 ```java
+// 集合早返回
 if (CollectionUtils.isEmpty(ids)) {
     return Collections.emptyList();
 }
 
+// 对象判空 + 业务异常
+if (Objects.isNull(order)) {
+    throw new BusinessException("订单不存在");
+}
+
+// Optional：查库无则抛（Lambda 内抛项目业务异常）
+Order order = Optional.ofNullable(getById(id))
+        .orElseThrow(() -> new BusinessException("订单不存在"));
+
+// Optional：空则给默认（替代 getXxx() != null ? getXxx() : ""）
+String remark = Optional.ofNullable(dto.getRemark()).orElse("");
+
 // 动态条件：值为 null 时不拼进 WHERE（MyBatis-Plus 示例）
 .eq(Objects.nonNull(param.getStatus()), Entity::getStatus, param.getStatus())
+.in(CollectionUtils.isNotEmpty(param.getIds()), Entity::getId, param.getIds())
 ```
 
-## Java 8 惯用法（适度）
+### Optional 边界
 
-在 `java.version` 上限内使用，不为炫技：
+| 适合 | 不适合 |
+|------|--------|
+| `getById` / `getOne` 查无则抛 | 普通 if 分支里已有明确 null 处理 |
+| 链式取值给默认值（`orElse` / `orElseGet`） | 层层 `Optional.ofNullable(a).map(...).map(...)` 防御 |
+| `filter(Objects::nonNull)` 配合 Stream | 把每个局部变量都包一层 Optional |
+
+`Optional` 不嵌套防御；无 null 风险的变量不必包 Optional。
+
+## Stream 流式处理
+
+> **原则**：可读性第一。能**明显**简化集合转换、过滤、聚合时用 Stream；不过度函数式、不为炫技。
+
+### 适合用 Stream
+
+| 场景 | 示例思路 |
+|------|----------|
+| 列表 → 另一列表 | `filter` + `map` + `collect` |
+| 分组 / 转 Map | `Collectors.groupingBy` / `toMap` |
+| 数值聚合 | `mapToInt(...).sum()`、`reduce` |
+| Entity → VO 批量映射 | `map(XxxConvert.INSTANCE::entityToVo).collect(...)` |
+| 去 null 后转换 | `filter(Objects::nonNull).map(...)` |
 
 ```java
-list.stream().filter(Objects::nonNull).map(Entity::getId).collect(Collectors.toList());
-map.stream().collect(Collectors.groupingBy(Entity::getGroupId));
-.collect(Collectors.toMap(Entity::getId, Function.identity(), (o, n) -> o));
-items.stream().mapToInt(ItemVo::getQuantity).sum();
-rows.stream().map(XxxConvert.INSTANCE::entityToVo).collect(Collectors.toList());
+List<Long> ids = orders.stream()
+        .filter(Objects::nonNull)
+        .map(Order::getId)
+        .collect(Collectors.toList());
+
+Map<Long, List<OrderDetail>> grouped = details.stream()
+        .collect(Collectors.groupingBy(OrderDetail::getOrderId));
+
+int totalQty = items.stream().mapToInt(ItemVo::getQuantity).sum();
 ```
 
-禁用超出项目 Java 版本的语法，见 [versions.md](versions.md)。`Optional` 不嵌套防御。
+### 保留 for / 增强 for
+
+| 场景 | 原因 |
+|------|------|
+| 2～3 行简单遍历 | for 更直观，不必强行 Stream |
+| 循环内多分支、`continue`/`break` | Stream 难读 |
+| 需要下标 | 传统 `for` 或 `IntStream.range` |
+| 循环体有副作用（写库、累加外部状态、发消息） | Stream 易藏 N+1，语义也不清晰 |
+| 业务校验需逐步早返回 | 抽私有方法 + for，或卫语句 |
+
+```java
+// 简单遍历：for 足够清晰时不必改 Stream
+for (OrderDetail detail : details) {
+    validateDetail(detail);
+}
+
+// 反例：forEach 里查库 → N+1
+ids.forEach(id -> orderMapper.selectById(id));  // 禁止
+```
+
+### 硬性边界
+
+- **禁止** `stream` / `forEach` 内单条查库、RPC、发 MQ（与 for 循环同理，见 data-access.md）
+- 链式操作 **≤ 4 步**；更长则拆中间变量或抽 `buildXxxList(...)` 私有方法
+- **禁止** `peek` 承载业务逻辑；**禁止**多层嵌套 Stream（`flatMap` 套 `flatMap` 套 `map`）
+- **禁止**默认 `parallelStream()`（除非有明确性能依据且邻模块已有先例）
+- 收集结果跟 JDK 版本：Java 8 用 `.collect(Collectors.toList())`；高版本见 [versions.md](versions.md)
+
+### 可读性自检（30 秒）
+
+1. 去掉 Stream 后，等价 for 是否**更短或一样短**？→ 优先 for  
+2. 链上能否一眼看出「输入 → 过滤什么 → 输出什么」？→ 否则拆分  
+3. 有没有在 lambda 里写超过 3 行业务？→ 抽方法引用或私有方法  
 
 ## MapStruct
 

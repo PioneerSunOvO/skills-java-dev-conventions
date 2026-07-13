@@ -32,6 +32,30 @@
 | 只捕获子异常导致漏捕 | `try-catch` 默认捕获 `Exception`，有明确约束再细分 |
 | 只打 `e.getMessage()` 无堆栈 | 用工具类打印完整堆栈（如 `ExceptionUtils.printRootCauseStackTrace(e)`）并保留错误上下文 |
 
+## 三·五、判空与工具类
+
+| 陷阱 | 对策 |
+|------|------|
+| `if (x == null)` / `if (x != null)` | `Objects.isNull(x)` / `Objects.nonNull(x)` |
+| `list == null \|\| list.isEmpty()` | `CollectionUtils.isEmpty(list)` |
+| `str == null \|\| str.isEmpty()` | `StringUtils.isBlank(str)` |
+| `a != null && a.equals(b)` | `Objects.equals(a, b)` |
+| `if (entity == null) throw …` 多层嵌套 | `Optional.ofNullable(entity).orElseThrow(...)` |
+| 每个变量都包 `Optional` | 仅「可能为空的一次取值 + 抛/默认」时用；见 [coding-patterns.md#判空与工具类](coding-patterns.md#判空与工具类) |
+
+## 三·六、Stream 流式处理
+
+| 陷阱 | 对策 |
+|------|------|
+| `forEach` / `map` 内 `mapper.selectById` | 批量查询或 XML 一次查出；禁止 N+1 |
+| 2～3 行简单遍历硬改 Stream | 保留 for，可读性优先 |
+| 5 步以上链式 `filter/map/flatMap/...` | 拆变量或抽私有方法 |
+| `peek` 里改对象、写库 | `peek` 仅调试；业务放 for 或显式循环 |
+| 嵌套 Stream / 默认 `parallelStream` | 扁平化或回退 for；并行需有依据 |
+| lambda 内 5 行以上业务 | 抽方法引用或 `private void validateXxx(...)` |
+
+详见 [coding-patterns.md#stream-流式处理](coding-patterns.md#stream-流式处理)。
+
 ## 四、SQL 与性能
 
 | 陷阱 | 对策 |
@@ -43,35 +67,34 @@
 
 ## 五、注释反面教材
 
-完整规范、分级表、润色示例见 [comments.md](comments.md)。常见反面：
+完整规范见 [comments.md](comments.md)。常见反面：
 
 | 问题 | 示例 |
 |------|------|
 | 复述代码 | `// 遍历订单列表` |
 | 机翻被动 | `// 该订单被用来判断是否可退款` |
+| 占位词 | `// 下面五类…`、`// 构建索引，供展示使用`、`// 补齐字段` |
 | 字段名复述 | `/** companyName 匹配权重 */` |
 | 与实现不符 | `// 异步通知下游` ← 实际同步 HTTP |
 | 机械全覆盖 | 每个 getter / 一行委托都加多行 Javadoc |
 | Swagger 与 Javadoc 双写同义 | Controller 二选一即可 |
+| Javadoc 与首步骤块重复 | 方法注释与 `// 查询xxx` 写同一句 |
+
+占位词与推荐改法 → [comments.md#占位词禁用法](comments.md#占位词禁用法)
 
 ## 六、方法结构
 
 | 陷阱 | 后果 | 对策 |
 |------|------|------|
-| 已触发分块条件却体内无步骤块 | 难跟流程 | 见 [comments.md#步骤分块](comments.md) |
+| 已触发分块条件却体内无步骤块 | 难跟流程 | [comments.md#步骤分块](comments.md#步骤分块) |
 | 步骤注释只有名词无边界 | 看不懂跳过条件 | 写「不通过则不执行」「无数据则清空」等 |
 | 块间无空行 | 视觉拥挤 | 每步后空一行 |
 | 公开方法 80+ 行无分块 | 难读、难审 | 步骤分块或抽 `validate*` / `build*` |
-| 公开方法用单行 `/** ... */` | 缺 `@param`/`@return` | 改多行 Javadoc |
-| 私有辅助误用多行 Javadoc | 噪音 | 口径一句话可用单行 `/** ... */` |
-| 给一行 Controller 委托写步骤块 | 冗余 | 不必分块，见 method-structure.md |
-| 分块用 `----` 装饰线 | 视觉噪点 | 删除，靠步骤注释 + 空行 |
-| 复杂逻辑无块内注释 | 难懂口径与分支 | 在 if/循环/计算处补单行 `//` |
 | validate 散落在多处 | 改规则易漏 | 写操作入口统一 `validateXxx` |
 | 过度抽私有方法 | 跳转多次才懂流程 | 只抽重复或难一眼读懂的块 |
 | 机械 `processXxx` 空壳 | 无信息增量 | 内联或改有意义命名 |
 
-详见 [method-structure.md](method-structure.md)。
+其余（单行 Javadoc、Controller 分块、装饰线等）→ [comments.md](comments.md) 与 [method-structure.md](method-structure.md)。
 
 ## 七、格式与排版（版本无关）
 
@@ -102,6 +125,11 @@
 - 无意义的 `// 处理异常` 包裹已有 try-catch
 - 违背 [comments.md 分级表](comments.md)：给可省略项也加多行 Javadoc
 - 三层对称 bullet：`首先 / 其次 / 最后`
+- 占位词：`下面…`、`补齐`、`构建索引`（指 Map）、`供…展示`、`维度转换` → 见 [占位词禁用法](comments.md#占位词禁用法)
+- 手写 `== null` / `!= null` 判对象（应用 `Objects.isNull` / `Objects.nonNull`）
+- 集合判空写成 `list == null || list.isEmpty()`（应用 `CollectionUtils.isEmpty`）
+- 字符串判空写成 `str == null || str.isEmpty()`（应用 `StringUtils.isBlank`）
+- 简单 for 硬改多层 Stream，或 Stream/forEach 内查库（N+1）
 - 过度防御：处处 `Optional` 嵌套却无 null 风险
 - 过度抽私有方法：`handleXxx` / `processData` 只调用一次
 - 引入项目未使用的工具类、设计模式（策略工厂全家桶）
@@ -138,7 +166,8 @@
 
 ### 质量
 
-- [ ] 空值/集合判空方式与项目一致
+- [ ] 无 `== null`/`!= null` 判对象；集合用 `CollectionUtils`；字符串用 `StringUtils`；查无则抛用 `Optional.orElseThrow`
+- [ ] Stream 仅用于能简化读写的转换/聚合；无 forEach 查库、无过度嵌套
 - [ ] 业务异常用项目统一异常类
 - [ ] 日志带上下文，异常保留堆栈
 - [ ] `try-catch` 默认捕获 `Exception`，未遗漏异常分支
@@ -148,10 +177,10 @@
 
 按 [comments.md](comments.md) 分级表与 30 秒自检：
 
-- [ ] 新增 Java 类含 `@description`（或首行业务说明）+ `@author` + `@since`
+- [ ] 新增 Java 类含 `@description` + `@author` + `@since`；`@author` 非 AI 工具名
 - [ ] 「必须」项已补：公开业务方法、ExceptionHandler/Bean、配置/Document/对外 VO 字段等
 - [ ] 已触发步骤分块条件的方法：块间空一行，步骤注释含边界
-- [ ] 无 AI 套话、机翻味、复述代码、字段名复述
+- [ ] 无 AI 套话、占位词、机翻味、复述代码、字段名复述（见 [comments.md 30 秒自检](comments.md#30-秒自检审查口令)）
 - [ ] Controller：Javadoc 与 Swagger 未双写同义；与邻类风格一致
 
 ### 方法结构

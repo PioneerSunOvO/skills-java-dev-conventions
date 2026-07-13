@@ -4,7 +4,8 @@ description: >-
   Use when adding or modifying Java/Spring Boot backend code: Controller, Service,
   Mapper, Repository, Entity, DTO/Param/VO, SQL/XML, or REST endpoints. Also when
   reviewing Java changes, refactoring layers, or user mentions Java规范, 分层,
-  中文注释, MyBatis, MapStruct, or Spring Boot 2→3 migration. Covers MyBatis,
+  中文注释, 判空, Optional, Objects.isNull, CollectionUtils, StringUtils, == null,
+  集合判空, Stream, stream流, 流式处理, MyBatis, MapStruct, or Spring Boot 2→3 migration. Covers MyBatis,
   MyBatis-Plus, and JPA stacks. Not for pure Java Q&A without code edits. Project
   CLAUDE.md, AGENTS.md, and .cursor/rules override this skill.
 ---
@@ -62,7 +63,7 @@ description: >-
 | 标签 | 要求 |
 |------|------|
 | `@description` | 一句话说清**类职责**；写业务口径或边界，不写「查询、更新、删除」列表 |
-| `@author` | 创建人 |
+| `@author` | 创建人真实姓名或项目约定署名；**禁止** Cursor、Codex、Auto、Claude、GPT、Copilot 等 AI/工具名（见 [comments.md#author-取值](comments.md#author-取值)） |
 | `@since` | 创建时间，格式 `YYYY-MM-DD HH:mm` |
 
 **变体**（切面、工具类、口径复杂的服务）：首行业务说明 + `@author` / `@since`。示例见 [coding-patterns.md](coding-patterns.md)。
@@ -86,17 +87,49 @@ URL 约定、对象选用、命名见 [architecture.md](architecture.md)。
 
 ## 编码硬性约束
 
-### 空值与集合
+### 空值与集合（硬性）
 
-跟随项目既有写法；推荐习惯见 [coding-patterns.md](coding-patterns.md)。常见模式：
+**新代码禁止**手写 `== null` / `!= null` 判对象；**禁止**对可能为 null 的集合/Map 直接 `.isEmpty()` / `.size() == 0`。一律用工具类，细则见 [coding-patterns.md#判空与工具类](coding-patterns.md#判空与工具类)。
+
+| 场景 | 必须用 | 禁止 |
+|------|--------|------|
+| 对象 null | `Objects.isNull()` / `Objects.nonNull()` | `== null`、`!= null` |
+| 字符串空白 | `StringUtils.isBlank()` / `isNotBlank()` | `str == null \|\| str.isEmpty()` |
+| 集合/Map 空 | `CollectionUtils.isEmpty()` / `isNotEmpty()` | `list == null \|\| list.isEmpty()` |
+| 等值比较 | `Objects.equals(a, b)` | `a != null && a.equals(b)` |
+| 查无则抛 | `Optional.ofNullable(x).orElseThrow(...)` | 多层 if 后 throw |
+| 查无给默认 | `Optional.ofNullable(x).orElse(def)` | 冗长三元 `x != null ? x : def`（简单字面量三元可保留） |
 
 ```java
-Objects.isNull(x) / Objects.nonNull(x)   // 部分项目禁止 == null，以邻代码为准
-StringUtils.isBlank(s)                   // commons-lang3
-CollectionUtils.isEmpty(list)            // collections4（以项目为准）
+if (Objects.isNull(order)) {
+    throw new BusinessException("订单不存在");
+}
+if (CollectionUtils.isEmpty(ids)) {
+    return Collections.emptyList();
+}
+Order order = Optional.ofNullable(getById(id))
+        .orElseThrow(() -> new BusinessException("订单不存在"));
 ```
 
-链式取值可能为 null 时用 `Optional` 或提前返回。JDK 特性边界见 [versions.md](versions.md)。
+- `StringUtils` / `CollectionUtils` 的 **import 包名跟邻文件**（`lang3`、`collections` vs `collections4`）
+- `Optional` 仅用于「可能为空的一次取值 + 抛异常/默认值」；**禁止**层层嵌套防御
+- 改老代码时邻段若已是 `== null` 或 Hutool `ObjectUtil`，可对齐邻段，但**新写片段**仍按上表
+- JDK 语法上限见 [versions.md](versions.md)（如 Java 8 禁用 `String.isBlank()`）
+
+### Stream 流式处理
+
+**可读性优先**：能明显简化集合转换/过滤/聚合时用 Stream；不要为了「函数式」牺牲可读性。细则见 [coding-patterns.md#stream-流式处理](coding-patterns.md#stream-流式处理)。
+
+| 适合 Stream | 保留 for / 普通循环 |
+|-------------|---------------------|
+| `map` / `filter` / `collect` 做列表转换 | 含复杂分支、多处 `continue`/`break` |
+| `groupingBy` / `toMap` / `sum` 聚合统计 | 循环体内有副作用（写库、改外部变量） |
+| 邻代码已普遍用 Stream 的同类转换 | 2～3 行简单遍历，for 更直观 |
+| 纯内存、无 I/O 的数据变换 | 需要下标、或逐步早返回的业务校验 |
+
+- **禁止**在 `stream` / `forEach` 内单条查库或远程调用（N+1）
+- 链式操作 **≤ 4 步**为宜；更长则拆变量或抽私有方法
+- 不用 `peek` 写业务逻辑；不用嵌套 Stream 炫技
 
 ### 异常与日志
 
@@ -141,13 +174,13 @@ CollectionUtils.isEmpty(list)            // collections4（以项目为准）
 
 ## 中文注释（摘要）
 
-注释是**硬性约束**，**权威细则见 [comments.md](comments.md)**（分级表、五层结构、字段规则、Swagger 分工、30 秒自检）。
+注释是**硬性约束**，**权威细则见 [comments.md](comments.md)**（一页速查、分级表、三层分工、占位词禁用法、30 秒自检）。
 
 **必须写**：类三要素、分级表中的「必须」项（公开业务方法、配置/Document/对外 VO 字段等）。
 
-**不要写**：复述代码、AI 套话、机械全覆盖 Javadoc、用英文字段名当字段注释。
+**不要写**：复述代码、AI 套话/占位词（下面/补齐/构建索引）、机械全覆盖 Javadoc、用英文字段名当字段注释。
 
-**步骤分块**：触发条件见 comments.md（≥15 行 / 多阶段 / 非显而易见分支）；一行 Controller 委托不必分块。
+**步骤分块**：触发条件见 [comments.md#步骤分块](comments.md#步骤分块)；一行 Controller 委托不必分块。
 
 ## 交付前自检
 
@@ -156,7 +189,9 @@ CollectionUtils.isEmpty(list)            // collections4（以项目为准）
 [ ] 分层正确；Controller 无业务、无直调 Mapper/Repository
 [ ] 入参 Param/DTO；出参 VO；Entity 不进 API；MapStruct 做边界转换
 [ ] 无 N+1；复杂查询走 XML/等价方式返 VO
-[ ] 注释：已按 comments.md 分级表与 30 秒自检
+[ ] 注释：已按 comments.md 分级表、30 秒自检与占位词禁用法
+[ ] 判空：无 `== null`/`!= null` 判对象；集合用 `CollectionUtils`；字符串用 `StringUtils`
+[ ] Stream：转换/聚合能简化则用；无 N+1、无过度嵌套；可读性不如 for 时保留 for
 [ ] 同类声明处多注解已按文本从短到长排列（见 coding-patterns.md）
 [ ] 未改敏感配置、未升依赖、未动用户未要求的模块
 ```
@@ -170,7 +205,7 @@ CollectionUtils.isEmpty(list)            // collections4（以项目为准）
 | [versions.md](versions.md) | 环境探测、Java 8–21 语法、SB2/SB3、持久层/注入/分页分支 |
 | [architecture.md](architecture.md) | 分包、Controller/Service、DTO/VO、URL、审计字段 |
 | [data-access.md](data-access.md) | SQL/XML、分页、事务一致性、金额时间 |
-| [comments.md](comments.md) | **注释权威**：分级表、五层结构、字段规则、Swagger 分工、特殊类型模板 |
+| [comments.md](comments.md) | **注释权威**：一页速查、分级表、三层分工、占位词禁用法、并行查询模板、30 秒自检 |
 | [method-structure.md](method-structure.md) | 步骤分块模板、按块分层、私有方法抽取 |
 | [coding-patterns.md](coding-patterns.md) | 判空工具、Stream、MapStruct、注解排列、Service/AOP 习惯 |
 | [pitfalls.md](pitfalls.md) | 陷阱表、AI 代码气味、交付清单 |
