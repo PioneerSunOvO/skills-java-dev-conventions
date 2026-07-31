@@ -28,28 +28,30 @@
 
 ## Controller
 
+> 示例中 **`R<T>`** 表示项目统一 HTTP 响应包装（如 `ApiResult`、`R`、`CommonResult`、`Result` 等），**跟邻 Controller** 的实际类名与静态方法；不要因为示例而新建一套响应包装。
+
 ```java
 // 好：薄控制器
 @PostMapping("/add")
-public ApiResult<Boolean> add(@Validated(Add.class) @RequestBody OrderDto dto) {
-    return ApiResult.result(orderService.save(dto));
+public R<Boolean> add(@Validated(CreateGroup.class) @RequestBody BizDto dto) {
+    return R.result(bizService.save(dto));
 }
 
 // 差：Controller 里查库、算业务、拼 VO
 @PostMapping("/add")
-public ApiResult<Boolean> add(@RequestBody Order entity) {
-    Order db = orderMapper.selectById(entity.getId());
-    if (db.getAmount() > 10000) { ... }
-    orderMapper.insert(entity);
-    return ApiResult.ok(true);
+public R<Boolean> add(@RequestBody BizEntity entity) {
+    BizEntity db = bizMapper.selectById(entity.getId());
+    if (db.getAmount().compareTo(threshold) > 0) { ... }
+    bizMapper.insert(entity);
+    return R.ok(true);
 }
 ```
 
 要点：
 
 - **门禁**：入参用 Param / DTO，**禁止 Entity 作 `@RequestBody`**；出参用 VO，**禁止直接返回 Entity**
-- 出参用项目统一包装（如 `ApiResult<Vo>`、`R<Vo>`）+ VO
-- 分页：`getPageList(@Validated @RequestBody XxxPageParam param)`（路径以邻 Controller 为准）
+- 出参用项目统一包装 + VO（见上 `R<T>` 说明）
+- 分页：`getPageList(@Validated @RequestBody XxxPageParam param)`（路径、HTTP 方法、入参类型以邻 Controller 为准）
 - 不在 Controller 里 `try-catch` 吞异常（交给全局异常处理）
 - OpenAPI 注解跟项目探测结果：有 `springfox`/`knife4j` 用 Swagger2（`@ApiOperation`）；有 `springdoc-openapi` 用 `@Operation`；**不混用**
 
@@ -114,7 +116,8 @@ MapStruct 进阶示例见 [coding-patterns.md](coding-patterns.md)。
 - 无自动填充 → 在 Service 里按 Entity 字段手动赋值：
 
 ```java
-entity.setOpUserid(LoginUtil.getUserId()).setOpDate(new Date());
+// 项目用户上下文工具（类名跟仓库，如 LoginUtil、SecurityUtils、UserContext）
+entity.setOpUserid(CurrentUser.getUserId()).setOpDate(new Date());
 ```
 
 ## 测试（边界）

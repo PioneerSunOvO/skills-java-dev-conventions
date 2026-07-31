@@ -1,27 +1,82 @@
 ---
 name: java-dev-conventions
 description: >-
-  Use when adding or modifying Java/Spring Boot backend code: Controller, Service,
-  Mapper, Repository, Entity, DTO/Param/VO, SQL/XML, or REST endpoints. Also when
-  reviewing Java changes, refactoring layers, or user mentions Java规范, 分层,
-  中文注释, 判空, Optional, Objects.isNull, CollectionUtils, StringUtils, == null,
-  集合判空, Stream, stream流, 流式处理, MyBatis, MapStruct, or Spring Boot 2→3 migration. Covers MyBatis,
-  MyBatis-Plus, and JPA stacks. Not for pure Java Q&A without code edits. Project
-  CLAUDE.md, AGENTS.md, and .cursor/rules override this skill.
+  Use when adding or modifying Java/Spring Boot backend code without a project-specific
+  skill, or for cross-project review: Controller, Service, Mapper, Entity, DTO/Param/VO,
+  SQL/XML, YAML. Triggers: Java规范, 分层, 中文注释, 机翻, AI味, 占位词, 套话, deslop,
+  Git 提交, MyBatis, MapStruct, Spring Boot 2→3 migration.
+  If the repo has a project-specific skill, use it before this one for API names,
+  modules, and business vocabulary.
+  NOT for: project-specific conventions → that project's skill; Superpowers workflow only
+  → brainstorming/writing-plans; concept Q&A without code changes → answer directly.
+  Project CLAUDE.md, AGENTS.md, .cursor/rules, and project skills override this skill.
 ---
 
 # Java 开发约束
 
-国内企业级 Java 后端（toB/toC）的编写与审查约束。**通用分层与质量底线**写在本文件；版本差异、持久层分支见 [versions.md](versions.md)；分层细节见 [architecture.md](architecture.md)。
+国内企业级 Java 后端（toB/toC）的**跨项目通用**编写与审查约束。**各仓库的项目专属 skill**（若有）负责版本锁定、API 类名、业务词汇等画像；本 skill 负责通用分层与质量底线。冲突时服从项目 rules / 项目 skill。
+
+版本差异、持久层分支见 [versions.md](versions.md)；分层细节见 [architecture.md](architecture.md)。
+
+## Superpowers 6.2.0 衔接
+
+本 skill 是**编码约束**，不替代 Superpowers **流程** skill。二者叠加；**项目 rules / 项目 skill 优先于 Superpowers 默认行为**。
+
+| 阶段 | Superpowers skill | 本 skill |
+|------|-------------------|----------|
+| 新功能 / 改业务行为 | `brainstorming` →（获批后）`writing-plans` | 设计阶段不写实现代码 |
+| 有书面计划的多步实施 | `executing-plans` 或 `subagent-driven-development` | 按计划写代码时 invoke 本 skill |
+| 写/改 Java 实现 | — | 本 skill + 项目 skill（若有） |
+| 改业务行为且需要回归验证 | `test-driven-development` 或项目既有测试流程 | 测试触发条件见 [tests-policy.md](tests-policy.md) |
+| 声称完成 / 可提交 | `verification-before-completion` | 交付自检见 [pitfalls.md](pitfalls.md) |
+| bug / 测试失败 | `systematic-debugging` | 定位后再 invoke 本 skill 改代码 |
+
+### 局部小改例外（与官方 brainstorming 并存）
+
+官方 `brainstorming` 默认 **MUST** 先设计。下列**全部满足**时可跳过 `brainstorming` / `writing-plans`，直接 invoke 本 skill（用户可说「局部小改，直接实现」）：
+
+| 条件 | 说明 |
+|------|------|
+| 单文件或局部 | 改动集中在 1 个类，或配套 1 个 Mapper XML / 配置文件 |
+| 规模小 | 预计净增删 **&lt; 50 行**（不含纯格式化） |
+| 无新契约 | 不新增 REST 路径、表结构、状态机、跨模块对外 API |
+| 方案已定 | 用户已指明改法，或 bug 根因已明确 |
+
+**仍须** `brainstorming`：新接口、新表/字段、核心业务规则变更、多方案取舍、跨模块或跨子系统改动。
+
+**有项目专属 skill 时**：`Superpowers（按上表）→ 项目 skill → 本 skill`（顺序以各仓 `CLAUDE.md` / `.cursor/skills/README.md` 为准）。
+
+### 跨模块 / 跨服务变更的升级条件
+
+以下任一命中，都不再视为“局部小改”，应先走 `brainstorming`，通常还需要 `writing-plans`：
+
+| 信号 | 原因 |
+|------|------|
+| 新增或修改 REST / RPC / Feign / MQ 契约 | 会影响调用方或消费者 |
+| 改共享 DTO / VO / `api` 模块 | 会波及多个模块或服务 |
+| 改分布式事务、幂等、补偿策略 | 需要先明确一致性边界 |
+| 改注册中心、网关、配置中心行为 | 影响运行时路由或环境配置 |
+| 需要在多个模块同时改代码 | 已超出单点修复 |
 
 ## 适用边界
 
 | 项 | 说明 |
 |----|------|
-| 默认栈 | Java 8–21、Spring Boot 2.x/3.x 或等价 Spring 栈、MyBatis / MyBatis-Plus / JPA |
+| 默认栈 | Java 8–21、Spring Boot 2.x/3.x、可选 Spring Cloud、MyBatis / MyBatis-Plus / JPA |
 | 不假设 | 包名、基类全限定名、统一响应类名、依赖版本——以**当前仓库**为准 |
 | 项目规则优先 | `CLAUDE.md`、`AGENTS.md`、`.cursor/rules` 冲突时服从项目 |
 | 改动范围 | 只动任务相关业务模块；不动框架底层、安全底层、敏感配置，除非用户明确要求 |
+
+### 适配边界
+
+本 skill 面向 **Java + Spring 生态**的企业后端，重点覆盖：
+
+- Spring Boot 2.x / 3.x
+- 可选 Spring Cloud（OpenFeign / Gateway / Nacos / Eureka / Config / LoadBalancer 等）
+- MyBatis、MyBatis-Plus、Spring Data JPA
+- 常见配套组件：Swagger2 / springdoc、Jackson / Fastjson / Gson、Hutool / Guava / Commons
+
+**不直接覆盖**：Dubbo、Vert.x、Quarkus、Micronaut、纯响应式 WebFlux 全链路、非 Spring 容器。遇到这些栈时，以邻代码与项目规则为准，不强套本文示例。
 
 ## 规则分层（跨项目 / 跨版本）
 
@@ -37,16 +92,27 @@ description: >-
 ## 执行顺序
 
 ```
-1. 读 versions.md  → 从 pom/gradle 探测并完成环境画像（Java、SB 代际、持久层、javax/jakarta）
-2. 读邻代码        → 命名、分层、注入、判空、注释详略、返回体
+1. 环境画像        → 见下「versions 捷径」；未明确时再读 versions.md 全量探测
+2. 读邻代码        → 命名、分层、注入、判空、异常日志、注释详略、返回体
 3. 定边界          → 入参 Param/DTO、出参 VO、Entity 转换走 MapStruct
-4. 写实现          → architecture.md + data-access.md（按画像选 API）
-5. 方法结构        → method-structure.md（步骤分块、按块分层、按需抽私有方法）
-6. 补注释          → comments.md（五层注释、去 AI/机翻味自检）
-7. 交付自检        → pitfalls.md 清单
+4. 大文件局部改    → 目标类 500+ 行时读 incremental-change.md，只动相关方法
+5. 写实现          → architecture.md + data-access.md（按画像选 API）
+6. 方法结构        → method-structure.md（步骤分块、按块分层、按需抽私有方法）
+7. 补注释          → comments.md（五层注释、去 AI/机翻味自检）
+8. 改 YAML（如有） → config-yml.md（段分割符、配置项中文注释）
+9. 交付自检        → pitfalls.md 清单
 ```
 
-**第 1 步不可跳过**：画像未明确前，不生成高版本语法、jakarta 包名或项目未使用的持久层 API。
+### versions 捷径
+
+`CLAUDE.md`、项目 skill（如 `<project>-quickref`）或 `pom`/`gradle` **已写明** JDK、Spring Boot 代际、持久层、分页方式时：
+
+- **可直接采用**，不必每次重跑全量探测
+- 仅核对邻文件 `import`（`javax`/`jakarta`、文档注解体系）与任务相关模块
+
+**仍须读 versions.md 全量探测**当：首次进入陌生仓库、依赖/父 POM 刚变更、或画像与邻代码 import 矛盾时。
+
+画像未明确前，不生成高版本语法、`jakarta` 包名或项目未使用的持久层 API。
 
 ## 新增文件硬性门禁
 
@@ -55,7 +121,7 @@ description: >-
 ```java
 /**
  * @description: 订单服务实现
- * @author: 开发者
+ * @author: 张三
  * @since: 2026-06-09 10:00
  */
 ```
@@ -69,6 +135,23 @@ description: >-
 **变体**（切面、工具类、口径复杂的服务）：首行业务说明 + `@author` / `@since`。示例见 [coding-patterns.md](coding-patterns.md)。
 
 缺任一要素、或 `@description` 为空 → 视为不合格。
+
+## 测试与验证门禁
+
+测试框架与基类跟项目 `src/test` 邻类，不在本 skill 里强行统一；但**何时必须补验证**应一致。详细清单见 [tests-policy.md](tests-policy.md)。
+
+| 场景 | 最低要求 |
+|------|----------|
+| 纯注释/文案/无行为变化重命名 | 可不新增测试；至少做编译或局部人工验证 |
+| 明确单点 bug 修复 | 至少补 1 个能复现旧问题、能证明已修复的验证（单测 / 接口 / 手工步骤三选一，优先自动化） |
+| 改业务行为、状态流转、异常码、分页口径、金额计算 | **必须**补或更新自动化测试；若仓库无测试基础，交付说明里列出手工验证步骤与风险 |
+| 支付回调、Webhook、MQ 消费、补偿任务、幂等逻辑 | **必须**覆盖重复调用 / 非法状态 / 边界金额 或 等价场景 |
+
+**原则**：
+
+- 测试验证的是**行为**，不是实现细节；避免把当前代码写法当断言对象
+- 存量仓无测试时，不因“补测试”擅自大规模改造测试基建；最小化补关键验证
+- 只改局部逻辑时，测试范围也局部；不顺手补无关模块覆盖率
 
 ## 分层速查
 
@@ -89,31 +172,12 @@ URL 约定、对象选用、命名见 [architecture.md](architecture.md)。
 
 ### 空值与集合（硬性）
 
-**新代码禁止**手写 `== null` / `!= null` 判对象；**禁止**对可能为 null 的集合/Map 直接 `.isEmpty()` / `.size() == 0`。一律用工具类，细则见 [coding-patterns.md#判空与工具类](coding-patterns.md#判空与工具类)。
+**新写片段**禁止手写 `== null` / `!= null` 判对象；禁止对可能为 null 的集合/Map 直接 `.isEmpty()` / `.size() == 0`。细则与场景对照表见 [coding-patterns.md#判空与工具类](coding-patterns.md#判空与工具类)。
 
-| 场景 | 必须用 | 禁止 |
-|------|--------|------|
-| 对象 null | `Objects.isNull()` / `Objects.nonNull()` | `== null`、`!= null` |
-| 字符串空白 | `StringUtils.isBlank()` / `isNotBlank()` | `str == null \|\| str.isEmpty()` |
-| 集合/Map 空 | `CollectionUtils.isEmpty()` / `isNotEmpty()` | `list == null \|\| list.isEmpty()` |
-| 等值比较 | `Objects.equals(a, b)` | `a != null && a.equals(b)` |
-| 查无则抛 | `Optional.ofNullable(x).orElseThrow(...)` | 多层 if 后 throw |
-| 查无给默认 | `Optional.ofNullable(x).orElse(def)` | 冗长三元 `x != null ? x : def`（简单字面量三元可保留） |
-
-```java
-if (Objects.isNull(order)) {
-    throw new BusinessException("订单不存在");
-}
-if (CollectionUtils.isEmpty(ids)) {
-    return Collections.emptyList();
-}
-Order order = Optional.ofNullable(getById(id))
-        .orElseThrow(() -> new BusinessException("订单不存在"));
-```
-
-- `StringUtils` / `CollectionUtils` 的 **import 包名跟邻文件**（`lang3`、`collections` vs `collections4`）
+- 对象：`Objects.isNull()` / `Objects.nonNull()`；集合/Map：`CollectionUtils`；字符串：`StringUtils.isBlank()`
+- 多库并存（Hutool + Commons + JDK）决策树见 [coding-patterns.md#多工具库并存](coding-patterns.md#多工具库并存)
 - `Optional` 仅用于「可能为空的一次取值 + 抛异常/默认值」；**禁止**层层嵌套防御
-- 改老代码时邻段若已是 `== null` 或 Hutool `ObjectUtil`，可对齐邻段，但**新写片段**仍按上表
+- `StringUtils` / `CollectionUtils` 的 **import 包名跟邻文件**
 - JDK 语法上限见 [versions.md](versions.md)（如 Java 8 禁用 `String.isBlank()`）
 
 ### Stream 流式处理
@@ -135,9 +199,10 @@ Order order = Optional.ofNullable(getById(id))
 
 - 可预期业务失败：`throw new BusinessException("简短中文")`（或项目等价类）
 - 禁止空 `catch`、禁止 `catch` 后 `return null` 吞异常
-- `@Slf4j`；`log.error("说明, key={}", val, e)` 保留堆栈；禁止 `System.out` / `printStackTrace`
-- `try-catch` 统一捕获 `Exception`，不捕获具体子异常（除非项目或用户明确指定）
-- 捕获后需使用异常工具类打印完整堆栈（如 `ExceptionUtils.printRootCauseStackTrace(e)`），禁止只打印 `e.getMessage()`
+- `@Slf4j`；**跟邻文件**：常见为 `log.error("说明, key={}", val, e)` 末参传 `Throwable` 保留堆栈
+- 禁止 `System.out` / `printStackTrace`；禁止只打 `e.getMessage()` 而无堆栈
+- 邻模块无先例时，不强行引入项目未用的异常工具类（如 `ExceptionUtils`）
+- `try-catch` **默认跟同模块邻代码**；支付回调、导入监听等常见 `catch (Exception e)`；无邻文件时再统一 `Exception`
 
 ### 事务
 
@@ -169,47 +234,91 @@ Order order = Optional.ofNullable(getById(id))
 - 多表、聚合、动态展示：**Mapper XML（或等价）一次返 VO**，避免 Service 循环查库拼 Map
 - 分页走项目封装，禁止全量查再内存截取
 - 禁止 `for` / `stream` 内单条查库（N+1）
+- 回调 / MQ / 定时补偿等含幂等场景，先读 [data-access.md#外部回调与幂等](data-access.md#外部回调与幂等)
+- 涉及金额字段、换算、比较或舍入时，先读 [data-access.md#金额与时间](data-access.md#金额与时间)
 
 详见 [data-access.md](data-access.md)。
 
+## 安全与鉴权（通用门禁）
+
+本 skill 不绑定某个安全框架；Shiro、Spring Security、自定义 SSO、网关鉴权都适用。详细清单见 [security.md](security.md)。
+
+- 权限校验写在**项目约定的入口层**（Controller、注解、切面或统一鉴权组件），不要在 Mapper / Convert 里散落权限分支
+- 涉及“当前登录人只能看/改自己的数据”的规则，Service 层仍要保留数据范围复核，不能只相信前端入参
+- 日志、异常、导出、回调报文里禁止泄露密钥、token、证件号、卡号、完整手机号等敏感信息
+- 拼 SQL、拼排序字段、拼导出列时，用户输入必须白名单或参数化，不把原始输入直接进入语句片段
+- 新增外部接口 / 回调处理时，要同时检查鉴权、签名、重放防护、幂等
+
 ## 中文注释（摘要）
 
-注释是**硬性约束**，**权威细则见 [comments.md](comments.md)**（一页速查、分级表、三层分工、占位词禁用法、30 秒自检）。
+注释是**硬性约束**，**权威细则见 [comments.md](comments.md)**（分级表、三层分工、30 秒自检）；占位词/套话表见 [comments-examples.md](comments-examples.md)。
 
 **必须写**：类三要素、分级表中的「必须」项（公开业务方法、配置/Document/对外 VO 字段等）。
 
-**不要写**：复述代码、AI 套话/占位词（下面/补齐/构建索引）、机械全覆盖 Javadoc、用英文字段名当字段注释。
+**不要写**：复述代码、与业务无关的技术动作说明、AI 套话/占位词（下面/补齐/构建索引）、机械全覆盖 Javadoc、用英文字段名当字段注释。
 
-**步骤分块**：触发条件见 [comments.md#步骤分块](comments.md#步骤分块)；一行 Controller 委托不必分块。
+**步骤分块**：触发条件见 [comments.md#步骤分块](comments.md#步骤分块)；完整范本见 [examples.md](examples.md)。
 
-## 交付前自检
+<a id="git-提交说明"></a>
+
+## Git 提交说明（通用骨架）
+
+`type(scope): 一句话` + 正文 `-` 列表（多项改动时分条）。`type` / `scope` **跟仓库 `git log`**。
+
+| 字段 | 说明 |
+|------|------|
+| `type` | 常见 `feat` `fix` `refactor` `perf` `docs` `chore` |
+| `scope` | 模块或业务域，与仓库一致 |
+| 正文 | 每条：做了什么 → 带来什么效果；可保留表名/路径 |
+
+- 不提交密钥、`.env`、无关二进制；未要求不主动 commit
+- 项目专属 `scope`、署名、提交用语 → 各仓 `CLAUDE.md` 或项目 skill
+
+<a id="交付前自检"></a>
+
+## 交付前自检（入口）
+
+交付前跑一遍；完整分节清单见 [pitfalls.md#完整交付清单](pitfalls.md#完整交付清单)：
 
 ```
-[ ] 已按 versions.md 完成环境画像（Java 语法、javax/jakarta、持久层 API）
-[ ] 分层正确；Controller 无业务、无直调 Mapper/Repository
-[ ] 入参 Param/DTO；出参 VO；Entity 不进 API；MapStruct 做边界转换
-[ ] 无 N+1；复杂查询走 XML/等价方式返 VO
-[ ] 注释：已按 comments.md 分级表、30 秒自检与占位词禁用法
-[ ] 判空：无 `== null`/`!= null` 判对象；集合用 `CollectionUtils`；字符串用 `StringUtils`
-[ ] Stream：转换/聚合能简化则用；无 N+1、无过度嵌套；可读性不如 for 时保留 for
-[ ] 同类声明处多注解已按文本从短到长排列（见 coding-patterns.md）
-[ ] 未改敏感配置、未升依赖、未动用户未要求的模块
+[ ] 环境画像已明确（项目 skill / versions 捷径）
+[ ] 分层与对象边界正确（无 Entity 穿透、无 N+1）
+[ ] 注释与类三要素符合 comments.md；占位词对照 comments-examples.md
+[ ] 新写片段判空跟邻代码或 coding-patterns 决策树
+[ ] 业务行为变化已补对应验证（见 tests-policy.md）
+[ ] 鉴权、数据范围、日志脱敏未被改坏（见 security.md）
+[ ] 未越权改模块/依赖/敏感配置
 ```
 
-完整清单：[pitfalls.md](pitfalls.md)。
+## 规则等级
+
+| 等级 | 内容 | 说明 |
+|------|------|------|
+| **硬门禁** | Entity 不穿透 API、无 N+1、事务边界、幂等、敏感配置/依赖不乱动 | 不满足即视为缺陷 |
+| **强约束** | 注释分级、步骤分块、判空与日志风格、对象边界 | 默认遵守；若项目已有稳定风格，先跟邻代码 |
+| **风格建议** | 注解从短到长、长行换行、示例命名偏好 | 无明确收益时不对旧代码大面积格式化 |
 
 ## 参考文件索引
 
-| 文件 | 内容 |
-|------|------|
-| [versions.md](versions.md) | 环境探测、Java 8–21 语法、SB2/SB3、持久层/注入/分页分支 |
-| [architecture.md](architecture.md) | 分包、Controller/Service、DTO/VO、URL、审计字段 |
-| [data-access.md](data-access.md) | SQL/XML、分页、事务一致性、金额时间 |
-| [comments.md](comments.md) | **注释权威**：一页速查、分级表、三层分工、占位词禁用法、并行查询模板、30 秒自检 |
-| [method-structure.md](method-structure.md) | 步骤分块模板、按块分层、私有方法抽取 |
-| [coding-patterns.md](coding-patterns.md) | 判空工具、Stream、MapStruct、注解排列、Service/AOP 习惯 |
-| [pitfalls.md](pitfalls.md) | 陷阱表、AI 代码气味、交付清单 |
-| [examples.md](examples.md) | 版本探测、语法降级、步骤分块、MapStruct 示例 |
+| 文件 | 何时读 | 内容 |
+|------|--------|------|
+| [versions.md](versions.md) | 画像不明或跨仓首次进入 | 环境探测、Java 8–21 语法、SB2/SB3、持久层/注入/分页分支 |
+| [migration.md](migration.md) | 升级 Java / Spring Boot / Spring Cloud | `javax`→`jakarta`、文档/注入/Cloud 升级要点 |
+| [architecture.md](architecture.md) | 定分层、URL、DTO/VO | 分包、Controller/Service、审计字段 |
+| [data-access.md](data-access.md) | 写 SQL/XML、分页、回调幂等 | SQL/XML、MP 动态条件、事务、金额时间 |
+| [incremental-change.md](incremental-change.md) | 改 500+ 行存量大类 | 局部修改、不顺手重构、Cloud 注意点 |
+| [comments.md](comments.md) | **每次**补/审注释 | 分级表、三层分工、30 秒自检 |
+| [comments-examples.md](comments-examples.md) | 去 AI 味、审查占位词 | 占位词表、套话表、正反例 |
+| [method-structure.md](method-structure.md) | 长方法编排、抽私有方法 | 步骤分块模板、按块分层 |
+| [coding-patterns.md](coding-patterns.md) | 判空、Stream、MapStruct | 判空表、Stream、注解排列、Service/AOP |
+| [tests-policy.md](tests-policy.md) | 改业务行为、补 bug、回调/MQ/金额逻辑 | 测试触发条件、验证层级、自动化优先级 |
+| [security.md](security.md) | 鉴权、数据范围、脱敏、SQL 排序白名单 | 通用安全门禁与交付核对项 |
+| [quick-check.md](quick-check.md) | 只想 30 秒按改动类型自检 | 按改动类型的最小检查表 |
+| [config-yml.md](config-yml.md) | 改 `application*.yml` | 段分割符、配置项中文注释、YAML 去机翻味 |
+| [pitfalls.md](pitfalls.md) | 交付前 | 陷阱表、AI 气味、完整交付清单 |
+| [examples-controller.md](examples-controller.md) | 需要中性化 Web 示例 | 响应包装、Controller、Swagger/OpenAPI |
+| [examples-data-access.md](examples-data-access.md) | 需要持久层中性示例 | MP / MyBatis / JPA / 分页 / 动态条件 |
+| [examples.md](examples.md) | **按需**（范本、润色对照） | 版本探测、步骤分块范本 A/B、注释润色、MapStruct |
 
 ## 跨项目复用
 

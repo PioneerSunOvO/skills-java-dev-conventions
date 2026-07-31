@@ -21,7 +21,29 @@
 | 查无则抛 | `Optional.ofNullable(x).orElseThrow(...)` | `if (x == null) throw …` 多层嵌套 |
 | 查无给默认 | `Optional.ofNullable(x).orElse(def)` | 冗长三元（简单字面量三元可保留） |
 
-老代码常见 `== null`、Hutool `ObjectUtil`、MyBatis `StringUtils`——**改邻段时对齐邻段**；**新写片段**仍用上表。
+老代码常见 `== null`、Hutool `ObjectUtil`、MyBatis `StringUtils`——**改邻段时对齐邻段**；**新写片段**仍用上表。**禁止**为达标而做无关文件的判空重写。
+
+### 多工具库并存
+
+存量仓库常同时有 **JDK `Objects`**、**Apache Commons Lang3**、**Commons Collections**、**Hutool**。决策顺序：
+
+```
+1. 看当前文件顶部 import —— 该文件主流用哪套？
+2. 新写片段跟同文件、同方法邻段 —— 不引入第三套风格
+3. 全新文件 / 新模块且无邻例时，优先 JDK + commons-lang3（见上表）
+4. 禁止同一方法内混用 Objects.isNull 与 ObjectUtil.isNull
+5. 禁止仅为规范把大文件整文件改判空
+```
+
+| 能力 | 优先（新模块无邻例） | 跟邻代码时常见 |
+|------|----------------------|----------------|
+| 对象 null | `Objects.isNull` / `nonNull` | Hutool `ObjectUtil`、或 `== null`（仅邻段已如此） |
+| 对象非空（含空串） | `Objects.nonNull` + 业务判断 | `ObjectUtils.isNotEmpty`（commons-lang3） |
+| 字符串空白 | `StringUtils.isBlank`（**lang3**） | 同左；勿用 MyBatis `StringUtils` |
+| 集合/Map 空 | `CollectionUtils.isEmpty`（**跟邻文件包名**） | `org.apache.commons.collections` 或 `spring` 版，跟邻 import |
+| MP 动态条件 | `.eq(Objects.nonNull(v), col, v)` | `.eq(StringUtils.isNotBlank(s), col, s)` 等，跟邻 Wrapper 链 |
+
+**import 核对**：`CollectionUtils` 有 `commons-collections`、`commons-collections4`、`springframework` 多个包；`StringUtils` 有 lang3 与 mybatis 同名类——**以邻文件为准**，不擅自换包。
 
 ### 示例
 
@@ -122,13 +144,13 @@ ids.forEach(id -> orderMapper.selectById(id));  // 禁止
 
 ```java
 @Mapper
-public interface OrderConvert {
-    OrderConvert INSTANCE = Mappers.getMapper(OrderConvert.class);
-    Order dtoToEntity(OrderDto dto);
+public interface BizConvert {
+    BizConvert INSTANCE = Mappers.getMapper(BizConvert.class);
+    BizEntity dtoToEntity(BizDto dto);
 }
 ```
 
-- 转换类命名统一使用 `*Convert` 后缀（如 `OrderConvert`），不使用 `*Converter`、`*MapperStruct` 等变体
+- 转换类命名统一使用 `*Convert` 后缀（如 `BizConvert`），不使用 `*Converter`、`*MapperStruct` 等变体
 - 列表不同映射目标：`@Named` + `@BeanMapping(qualifiedByName = ...)`
 - 枚举展示名：`@Mapping(expression = "java(...)")` + `@Mapper(imports = {...})`
 - 多表 VO：**Mapper XML 一次查出**，不在 Service 循环拼
@@ -147,9 +169,9 @@ public interface OrderConvert {
 
 ## 异常捕获与堆栈
 
-- `try-catch` 统一捕获 `Exception`，不捕获具体子异常（除非项目或用户明确指定）
-- 捕获后使用异常工具类打印完整堆栈，例如 `ExceptionUtils.printRootCauseStackTrace(e)`
-- 禁止只记录 `e.getMessage()` 或吞掉堆栈，避免排障信息缺失
+- `try-catch` **默认跟同模块邻代码**；支付回调、导入监听等常见 `catch (Exception e)`；无邻文件时再统一 `Exception`
+- 捕获后**跟邻文件**打日志：常见 `log.error("说明, key={}", val, e)` 末参传 `Throwable` 保留堆栈
+- 禁止只记录 `e.getMessage()` 或吞掉堆栈；邻模块无先例时不强行引入 `ExceptionUtils` 等工具类
 
 ## AOP 与副作用
 
@@ -204,13 +226,13 @@ public class OrderController {
 @Override
 @GetMapping("/{id}")
 @Transactional(rollbackFor = Exception.class)
-public OrderVo get(@PathVariable Long id) {
+public BizVo get(@PathVariable Long id) {
 ```
 
 **推荐**（参数级）：
 
 ```java
-public void update(@PathVariable Long id, @Valid @RequestBody OrderDto dto) {
+public void update(@PathVariable Long id, @Valid @RequestBody BizDto dto) {
 ```
 
 **不推荐**（长短交错）：

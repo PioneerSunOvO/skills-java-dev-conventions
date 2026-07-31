@@ -1,8 +1,29 @@
 # 版本与环境探测
 
-动手写代码前**必须先完成环境画像**。项目 `CLAUDE.md` / `AGENTS.md` 中的版本锁定、模块禁改等规则优先于本文件。
+动手写代码前**须明确环境画像**（不必每次全量探测）。项目 `CLAUDE.md` / `AGENTS.md` 中的版本锁定、模块禁改等规则优先于本文件。
 
 **版本无关规则**（分层、注释、N+1 等）见 [SKILL.md](SKILL.md)；本文件只解决「当前仓库该用哪套 API / 包名 / 语法」。
+
+## 捷径（可跳过全量探测）
+
+与 [SKILL.md](SKILL.md)「versions 捷径」一致：
+
+| 条件 | 做法 |
+|------|------|
+| `CLAUDE.md`、项目 skill（如 `<project>-quickref`）或 `pom`/`gradle` **已写明** JDK、Spring Boot 代际、持久层、分页 | **直接采用**；只核对任务相关模块邻文件 `import`（`javax`/`jakarta`、文档注解） |
+| 首次进入陌生仓库、依赖/父 POM 刚变更、画像与邻代码 import 矛盾 | 走下文**全量探测** |
+
+画像未明确前，**不生成**高版本语法、`jakarta.*` 或项目未使用的组件 API。
+
+### 探测失败时的保守策略
+
+若构建文件不全、父 POM 看不到、或同仓多模块风格不一致，按以下顺序保守落地：
+
+1. **先看邻模块 import 与测试**，不要凭经验猜框架
+2. **无法确认是否 MP** → 先按原生 MyBatis / JPA 邻代码写，不主动生成 `Wrappers`
+3. **无法确认文档体系** → 沿用邻 Controller 的 Swagger2 / springdoc / 无注解风格
+4. **无法确认是否 Cloud** → 不主动生成 `@FeignClient`、Gateway 过滤器、配置中心代码
+5. **仍不确定且改动会引入新契约** → 先 `brainstorming`，向用户确认
 
 ## 环境探测流程
 
@@ -44,7 +65,7 @@
 
 ```text
 Java: 8 | Spring Boot: 2.2.5 | Spring Cloud: 无
-持久层: MyBatis-Plus 3.3 | 校验: javax.validation | 分页: PageInfo + Paging
+持久层: MyBatis-Plus 3.3 | 校验: javax.validation | 分页: 项目自定义封装
 注入: @Setter(onMethod=@__(@Autowired)) | 文档: Swagger2
 ```
 
@@ -53,8 +74,6 @@ Java: 17 | Spring Boot: 3.2 | Spring Cloud: 2023.0.x
 持久层: MyBatis-Plus | 注册: Nacos | 调用: OpenFeign | 网关: Gateway
 校验: jakarta.validation | 文档: springdoc
 ```
-
-画像未明确前，**不生成**高版本语法、`jakarta.*` 或项目未使用的组件 API。
 
 ---
 
@@ -127,12 +146,12 @@ SB3 全面 `jakarta.*`；SB2 保持 `javax.*`，不提前迁移。
 
 | 信号 | 做法 |
 |------|------|
-| MP + 项目 `PageInfo` / `Paging` | `new PageInfo<>(param)` + Mapper 分页方法 + `new Paging<>(iPage)`；部分脚手架/多模块项目常见 |
+| MP + 项目自定义分页封装 | `PageInfo` / `Paging`、`PageResult`、包装 `IPage` 等；跟项目封装 |
 | PageHelper | `PageHelper.startPage()` + 项目分页出参 |
 | MyBatis-Plus 原生 | `Page<Entity>` + `selectPage` |
 | Spring Data JPA | `Pageable` + `Page<T>` |
 
-禁止全量 `list()` 后 `subList` 内存分页。对照示例见 [examples.md#分页](examples.md#分页)。
+禁止全量 `list()` 后 `subList` 内存分页。对照示例见 [examples.md#分页写法对照](examples.md#分页写法对照)。
 
 ---
 
@@ -151,7 +170,7 @@ SB3 全面 `jakarta.*`；SB2 保持 `javax.*`，不提前迁移。
 
 ## 时间类型与 JSON
 
-跟邻 Entity 一致；同一模块不混用 `Date` 与 `LocalDateTime`。金额优先整数分，注释标明单位。
+跟邻 Entity 一致；同一模块不混用 `Date` 与 `LocalDateTime`。金额用 `BigDecimal`，单位跟邻字段注释（元/分等）。
 
 ---
 
@@ -164,5 +183,34 @@ SB3 全面 `jakarta.*`；SB2 保持 `javax.*`，不提前迁移。
 | SB2 写 `jakarta.validation` | 保持 `javax` |
 | Java 8 用 `record` | 改 `@Data` class |
 | 擅自升级依赖版本 | 禁止，除非用户明确要求 |
+| 引入项目未用的 JSON 库新 API | 跟邻代码；见下文「老旧依赖」 |
+
+---
+
+## 老旧依赖与第三方组件
+
+存量项目常锁定较旧版本的 JSON、HTTP、安全、注册中心等组件。**跨项目通用原则**：
+
+| 原则 | 说明 |
+|------|------|
+| **跟邻代码** | 序列化用项目已有的 Fastjson / Jackson / Gson；不混用两套注解 |
+| **不擅自升级** | 不在单次业务改动中升 `pom` / `gradle` 版本，除非用户明确要求 |
+| **不引入新库** | 已有 Hutool / Guava / Commons 时，不另加功能重叠依赖 |
+| **安全敏感** | 已知有漏洞的旧版 JSON 库：业务改动不扩大使用面；升级走专项任务 |
+| **Spring Cloud** | 注册中心、配置中心、网关版本与 BOM 对齐；不单独升某个 starter |
+
+探测时记录画像中的关键组件（示例，非穷举）：
+
+```text
+JSON: Jackson 2.x | HTTP: RestTemplate | 注册: Nacos | 熔断: Sentinel
+```
+
+写新代码时以该画像为准；无先例则不引入第二种同类组件。
 
 更多见 [pitfalls.md](pitfalls.md)、[examples.md](examples.md)。
+
+---
+
+## 升级 / 迁移入口
+
+遇到 Java、Spring Boot、Spring Cloud、JSON 库、API 文档体系升级任务时，先读 [migration.md](migration.md)。普通业务改动里**不顺手迁移**依赖或注解体系。

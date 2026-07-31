@@ -7,11 +7,11 @@
 | 项 | 规则 |
 |----|------|
 | **必须写** | 类三要素；公开业务方法 Javadoc；ExceptionHandler / Bean；配置 / Document / 对外 VO 字段 |
-| **不要写** | 复述代码；AI 套话；占位词（下面 / 补齐 / 构建索引）；机械全覆盖 Javadoc |
-| **步骤分块** | 方法体 ≥15 行，或 ≥2 个业务阶段，或有非显而易见分支 → 块首 `//` + 块间空一行 |
+| **不要写** | 复述代码；与业务无关的实现噪音；AI 套话；占位词（下面 / 补齐 / 构建索引）；机械全覆盖 Javadoc |
+| **步骤分块** | 方法体 ≥15 行，或 ≥2 个业务阶段，或有非显而易见分支 → 块首 `//` + 块间空一行；完整范本见 [examples.md](examples.md) |
 | **三层分工** | Javadoc 写方法级口径；步骤块写阶段意图；块内行写分支 / 幂等 / 单位（见下文） |
 | **Map 用词** | 内存 Map 用「映射 / 汇总」，不说「构建索引」（数据库索引除外） |
-| **审查** | 30 秒自检 + [占位词禁用法](#占位词禁用法)；新类 `@author` 禁止 AI 名（见 [#author-取值](#author-取值)） |
+| **审查** | 30 秒自检 + [comments-examples.md#占位词禁用法](comments-examples.md#占位词禁用法)；新类 `@author` 禁止 AI 名（见 [#author-取值](#author-取值)） |
 
 ## 30 秒自检（审查口令）
 
@@ -21,9 +21,10 @@
 3. 方法 ≥15 行或有业务分支：有步骤块和块间空行吗？
 4. 字段注释是业务语义，还是 Java 字段名复述？
 5. 改逻辑的地方，注释同步改了吗？
-6. 读起来像同事交代规则，还是机翻 / AI 套话？
-7. 有没有「下面 / 补齐 / 供… / 构建索引 / 维度转换 / 逐组逐行」等占位词？
-8. 新类 `@author` 是真人或项目约定吗？有没有 Cursor/Codex/Auto 等 AI 名？
+6. 注释写的是业务规则/边界，还是“遍历列表”“设置值”这类实现噪音？
+7. 读起来像同事交代规则，还是机翻 / AI 套话？
+8. 有没有占位词？对照 [comments-examples.md#占位词禁用法](comments-examples.md#占位词禁用法)
+9. 新类 `@author` 是真人或项目约定吗？有没有 Cursor/Codex/Auto 等 AI 名？
 ```
 
 ## Javadoc / 步骤块 / 块内行 — 三层分工
@@ -55,6 +56,7 @@
 - **新增/修改业务代码**：按分级表补注释
 - **可省略**：getter、简单 setter、一眼能看懂的赋值、≤3 行无分支委托
 - **改逻辑必改注释**；注释与实现不一致视为缺陷
+- **只写业务相关信息**：注释只补“为什么这样做、什么情况下这样做、口径/边界/单位/幂等/权限”等信息；**不写** IDE 看得见的实现动作、变量搬运、集合遍历、Map put/get、DTO/VO 转换流水账
 - **朗读自检**：像同事口头交代规则 → 合格；像翻译腔 → 重写
 
 ## 注释五层结构
@@ -98,6 +100,8 @@
 
 ### 标杆对照（占位类型名，换项目时替换为实际 Param/VO）
 
+保留 2 个典型形状即可；更多见 [examples.md](examples.md)。
+
 ```java
 /**
  * 查询层级报表。
@@ -109,15 +113,6 @@
 public List<ReportTreeVo> queryReport(ReportQueryParam param) { ... }
 
 /**
- * 组装报表节点（固定仅 parentId 下一级）。
- * A、B 两类数量在业务层按 catId+业务键合并；内部 ID 与业务键的换算也在业务层处理。
- *
- * @param param 含 parentId、year、筛选类型列表
- * @return 带 reportData 的节点列表及末尾合计行
- */
-private List<ReportTreeVo> buildReportNodes(ReportQueryParam param) { ... }
-
-/**
  * 解析区域过滤条件，口径与列表查询接口一致。
  * parentId=0 使用 catId IN 本级列表；parentId≠0 使用父级 fullId 作前缀匹配。
  *
@@ -127,22 +122,6 @@ private List<ReportTreeVo> buildReportNodes(ReportQueryParam param) { ... }
  * @return 统计 SQL 用的区域条件
  */
 private QueryScope resolveQueryScope(...) { ... }
-
-/**
- * 业务成功后解析上下文，按配置执行同步或清理。
- *
- * @param joinPoint 切点
- * @param marker    业务标记注解
- */
-public void afterSuccess(JoinPoint joinPoint, BusinessMarker marker) { ... }
-
-/**
- * 重算并落库衍生数据。
- * 主记录不存在或明细为空时清空；有数据则先删后插。
- *
- * @param id 业务主键
- */
-public void rebuildById(Long id) { ... }
 ```
 
 ### `@Override` 实现类
@@ -164,7 +143,7 @@ public void rebuildById(Long id) { ... }
 - **已用 `@ApiOperation` / `@Operation` 写清职责、参数、返回值** → Javadoc 可省略，审查以 API 文档注解为准
 - **Swagger 仅一句话、未写边界** → 仍须 Javadoc 补充（空结果、权限、幂等等）
 - **禁止** Javadoc 与 `@ApiOperation.notes` / `@Operation.description` **矛盾**
-- 一行 `return ApiResult.ok(service.xxx(param))` → **不需要**步骤分块
+- 一行 `return R.ok(service.xxx(param))`（`R` 为项目响应包装）→ **不需要**步骤分块
 
 ## 步骤分块 {#步骤分块}
 
@@ -195,109 +174,18 @@ public void rebuildById(Long id) { ... }
 | **简** | 步骤意图一目了然 | `// 动词+对象` | `// 加载本级年份统计数据` |
 | **详** | 本步含分支口径或跨层约定 | `// 动词+对象：条件A 用…，条件B 用…` | `// 确定区域条件：parentId=0 用 catId IN，parentId≠0 用父级 fullId 前缀匹配` |
 
-### 范本 A：编排型 `build*`（多阶段查询 → 汇总 → 组装）
+### 完整范本（按需，不每次必读）
 
-适用：报表节点组装、PDF/导出数据组装等。Javadoc 写口径与归并规则；体内按阶段分块，块间空一行。
+规则以上文为准；完整代码范本见 [examples.md](examples.md)：
 
-```java
-/**
- * 组装报表节点（固定仅 parentId 下一级）。
- * A、B 两类数量在业务层按 catId+业务键合并；内部 ID 与业务键在业务层换算。
- *
- * @param param 含 parentId、year、筛选类型列表
- * @return 带 reportData 的节点列表及末尾合计行
- */
-private List<ReportTreeVo> buildReportNodes(ReportQueryParam param) {
-    // 确定本次统计涉及的分类范围
-    List<CatalogVo> levelList = resolveTargetCatalogs(param);
-    if (CollectionUtils.isEmpty(levelList)) {
-        return Collections.emptyList();
-    }
+| 场景 | 链接 |
+|------|------|
+| 编排型 `build*` | [范本 A](examples.md#步骤分块范本-a编排型-build) |
+| 预览生成型 `generate*` | [范本 B](examples.md#步骤分块范本-b预览生成型-generate) |
+| 多路并行查询块内写法 | [并行块](examples.md#多路并行查询块内写法) |
+| 切面 / Service / 多数据源 | [步骤分块示例](examples-method-structure.md) |
 
-    // 提取本级 ID
-    List<Long> levelIds = extractIds(levelList);
-    // 确定区域条件：parentId=0 用 catId IN，parentId≠0 用父级 fullId 前缀匹配
-    QueryScope queryScope = resolveQueryScope(param.getParentId(), levelList, ...);
-
-    // 加载本级年份统计数据
-    YearStats yearStats = loadYearStats(...);
-    // 按本级 ID 汇总统计数据
-    Map<Long, ReportDataVo> reportById = aggregateByCatalog(levelIds, yearStats);
-
-    // 组装报表节点
-    List<ReportTreeVo> nodes = buildNodes(...);
-    // 添加合计行
-    nodes.add(buildTotalRow(...));
-
-    return nodes;
-}
-```
-
-### 范本 B：预览生成型 `generate*`（并行多路查询 → 计算 → 缓存）
-
-适用：结算/订单等「生成预览、uuid 缓存、保存时读快照」流程。Javadoc 写并行口径与缓存边界；多路 SQL 每路一行说明，不用「下面…一并拉取」。
-
-```java
-/**
- * 生成业务明细预览。
- * 元数据单独查一次再传入各统计 SQL；多路统计并行查后合并计算。
- * 预览结果写入 Redis，保存时凭 uuid 读取。
- *
- * @param param 业务年份与范围列表
- * @return 父子结构明细、汇总金额和预览 uuid
- */
-public PreviewVo generateDetail(GenerateParam param) {
-    // 校验入参
-    validateGenerateParam(param);
-
-    // 查元数据映射，各统计 SQL 按 ID 过滤，不再连维表
-    List<ItemMetaVo> itemMetas = mapper.selectItemMetas(param.getYear());
-    ...
-
-    // 多路统计互不影响，并行查
-    // 路线一：主业务聚合（说明统计口径）
-    CompletableFuture<List<RowVo>> mainFuture = CompletableFuture.supplyAsync(..., executor);
-    // 路线二：辅助数量（说明 quantityType 或来源表）
-    CompletableFuture<List<RowVo>> auxFuture = CompletableFuture.supplyAsync(..., executor);
-    // 路线三：历史已结金额（说明抵扣规则）
-    CompletableFuture<List<RowVo>> historyFuture = ...
-    CompletableFuture.allOf(mainFuture, auxFuture, historyFuture).join();
-
-    // 写入展示字段（名称、单价等在业务层关联）
-    fillRowMeta(mainFuture.join(), ...);
-
-    // 合并多源行并按规则算明细
-    List<DetailVo> details = calculateDetails(...);
-
-    // 写预览头与汇总
-    PreviewVo preview = buildPreviewHeader(details, param);
-    // uuid 写入 Redis，保存时凭 uuid 读取
-    cachePreview(preview);
-
-    return preview;
-}
-```
-
-### 多路并行查询（块内写法）
-
-多路 `CompletableFuture` 或独立 SQL 并行时：**总起一句 + 每路子查询一行说明口径**，join 后写合并/计算步骤；避免「拉取后合并计算」等空泛收尾。
-
-```java
-// 多路统计互不影响，并行查
-// 路线一：主业务聚合（说明口径）
-CompletableFuture<List<RowVo>> mainFuture = CompletableFuture.supplyAsync(
-        () -> mapper.selectMainAggregation(year, scopeIds, itemIds), executor);
-// 路线二：辅助数量（说明来源或类型码）
-CompletableFuture<List<RowVo>> auxFuture = CompletableFuture.supplyAsync(
-        () -> mapper.selectAuxQuantity(year, scopeIds, itemIds, TYPE_X), executor);
-CompletableFuture.allOf(mainFuture, auxFuture, ...).join();
-
-// 合并多源行
-List<RowVo> allRows = mergeRows(mainFuture.join(), auxFuture.join());
-
-// 按规则算明细，共用字段同分组键汇总
-List<DetailVo> details = calculateDetails(allRows, ...);
-```
+多路并行时：**总起一句 + 每路子查询一行说明口径**，join 后写合并/计算；禁止「下面…一并拉取」「拉取后合并计算」等空泛收尾。
 
 ### 步骤注释：好 vs 差
 
@@ -310,6 +198,8 @@ List<DetailVo> details = calculateDetails(allRows, ...);
 | `// 用待支付状态作更新条件，防并发重复` | `// 更新状态` |
 | `// 合并字段：按分组键汇总，合并列展示` | `// 构建汇总索引，供合并列展示` |
 | `// 外部 ID 转内部 ID` | `// 完成维度转换` |
+| `// 已终态直接返回，避免重复记账` | `// 遍历通知记录` |
+| `// 仅统计已生效记录，作废单不参与汇总` | `// 过滤数据` |
 
 块内行注释示例：
 
@@ -336,7 +226,7 @@ List<DetailVo> details = calculateDetails(allRows, ...);
 
 **取值顺序**（命中即停）：
 
-1. **项目 rules / 项目 skill** 已约定默认作者 → 用约定值（如 magApi 见 `@magapi-quickref`）
+1. **项目 rules / 项目 skill** 已约定默认作者 → 用约定值（如某仓 `@xxx-quickref`）
 2. **`git config user.name`** 非空且非 AI 工具名 → 用 git 用户名
 3. **操作系统登录名**（如 `whoami` / `$env:USERNAME`）→ 仅作兜底
 4. **仍无法确定** → **先问用户**，不得自行填 AI 名或占位符「开发者」
@@ -352,7 +242,7 @@ List<DetailVo> details = calculateDetails(allRows, ...);
 ### 写法
 
 ```java
-/** 金额，单位：分 */
+/** 订单金额，单位：元，保留两位小数 */
 /** 外部流水号，与第三方支付 out_trade_no 一致 */
 ```
 
@@ -412,7 +302,7 @@ private String comName;
  * @return 失败响应，data 为 null
  */
 @ExceptionHandler(BusinessException.class)
-public ApiResult<Void> handleBusinessException(BusinessException e) { ... }
+public R<Void> handleBusinessException(BusinessException e) { ... }
 ```
 
 ### `@Bean` / 配置类
@@ -459,7 +349,19 @@ default void afterToDocument(...) { ... }
 - 数据转换可用箭头：`catId+ISBN → 数量`、`proId → itmId`
 - 中英空格：`按 orderId 幂等更新`、`pid≠0 时`
 - 全角标点用于中文句子
-- 去 AI 味、去机翻味（见 [占位词禁用法](#占位词禁用法)、[AI 套话](#ai-套话--见到就删或改)）
+- 去 AI 味、去机翻味（见 [comments-examples.md#占位词禁用法](comments-examples.md#占位词禁用法)、[comments-examples.md#ai-套话--见到就删或改](comments-examples.md#ai-套话--见到就删或改)）
+
+### 与业务无关的描述：见到就删
+
+以下内容**默认不写进注释**，除非它本身就是业务约束的一部分：
+
+| 不要写 | 原因 | 该写什么 |
+|--------|------|----------|
+| `遍历列表`、`循环处理`、`设置属性`、`调用方法` | IDE 一眼可见，没有业务信息增量 | 该步为什么遍历、筛掉什么、合并口径是什么 |
+| `将 DTO 转为 Entity`、`将结果封装为 VO` | 只是对象流转，不是业务规则 | 转换后保留/忽略哪些业务字段 |
+| `查询数据库`、`执行更新` | 只复述技术动作 | 为什么此处查、查哪些业务口径、更新什么状态前置 |
+| `进行校验`、`处理数据`、`生成结果` | 过于抽象 | 写清校验对象、失败条件、结果口径 |
+| `提高性能`、`保证准确性`、`便于后续维护` | 空泛结论，没有可核对规则 | 写具体机制：批量查、防并发重复、固定某字段口径 |
 
 ### 「索引」一词消歧
 
@@ -469,149 +371,7 @@ default void afterToDocument(...) { ... }
 | ES mapping 字段 | 「索引 mapping 字段」 |
 | 内存 `Map` 查找、分组汇总 | **映射**、**按 X 汇总**；不说「构建索引」 |
 
-## 占位词禁用法 {#占位词禁用法}
-
-见到下列写法，**删或改**为具体业务动作：
-
-| 禁用 | 问题 | 改法示例 |
-|------|------|----------|
-| 下面… / 上述… / 以下… | 指代空泛，读者需回翻 | 直接写对象：`// 五类统计并行查` |
-| 补齐 / 回填 / 承接 | 不说清做了什么 | `写入`、`关联`、`汇总`、`proId转itmId` |
-| 构建…索引（指 Map） | 伪技术词 | `// 订期名称、单价映射` |
-| 维度转换 / 组装视图对象 | 抽象隐喻 | `proId转itmId`、`写入明细字段` |
-| 供…使用 / 用于…展示 | 被动、空泛 | 写规则：`合并列展示`、`分组小计` |
-| 逐组 / 逐行 / 逐字段 | 机械枚举 | `按组`、`按行`，或删除 |
-| 首先…其次…最后… | AI 三段式 | 改步骤块，每块独立一句 |
-| 拉取后合并计算 / 一并并行查询 | 收尾空泛 | 每路子查询写口径，合并步单独一句 |
-
-## 推荐用词 {#推荐用词}
-
-| 场景 | 推荐 | 避免 |
-|------|------|------|
-| 内存 Map | 映射、按 X 汇总 | 构建索引 |
-| 补全展示字段 | 写入、关联 | 补齐 |
-| 父级汇总 | 汇总、合并列 | 承接 |
-| 落库关联 ID | 写入主表 ID | 回填 |
-| 循环处理 | 按组、按行 | 逐组、逐行 |
-| 并行多 SQL | 互不影响，并行查 + 每路冒号说明 | 下面 N 类…一并拉取 |
-| 预览缓存 | 写入 Redis，凭 uuid 读取 | 缓存到 Redis，按 uuid 取回 |
-
-## 应避免的模式
-
-| 模式 | 改法 |
-|------|------|
-| 只有 Javadoc、体内无步骤分块（且已触发分块条件） | 补步骤注释与空行 |
-| 步骤注释只有名词 | 补动词与边界 |
-| Javadoc 与第一个步骤块重复 | 步骤块写阶段，Javadoc 写口径 |
-| 机翻被动语态 | 改主动短句 |
-| 复述可见代码 | 写业务口径或删除 |
-| AI 套话 / 占位词 | 见上表 |
-| 用 `----` 装饰线 | 删除，靠空行分层 |
-| Controller Javadoc 与 Swagger 双写同义内容 | 二选一 |
-| 字段注释复述英文字段名 | 改业务中文语义 |
-| `@param param 查询参数` | 写具体字段约定 |
-
-## AI 套话 — 见到就删或改 {#ai-套话--见到就删或改}
-
-| 删掉或改写 | 替换思路 |
-|------------|----------|
-| 该方法用于… / 本方法的主要作用是 | 直接写职责或规则 |
-| 值得注意的是 / 综上所述 | 删除 |
-| 旨在 / 有效地 / 进行…操作 | 删修饰，保留动词 |
-| 确保…的正确性 | 写具体规则或删除 |
-| 唯一依据 / 渲染为 / 累加器 | 删装饰词，写业务列名或规则 |
-
-## 润色示例
-
-### 预览生成 — 占位词改写
-
-**前：**
-
-```java
-// 下面多路统计互不依赖，一并并行查询
-// 构建基数映射：同一分组键多行共用
-// 构建汇总映射：按分组键汇总，供合并列展示
-// 补齐聚合行展示字段
-// 父级承接合并单元格汇总值
-// uuid写入Redis，保存时原样带回
-```
-
-**后：**
-
-```java
-// 多路统计互不影响，并行查
-// 基数：同一分组键多行共用
-// 汇总金额：按分组键汇总，合并列展示
-// 写入聚合行展示字段
-// 父级汇总合并列金额
-// uuid写入Redis，保存时凭uuid读取
-```
-
-### 体内无分块 → 步骤分块
-
-**前：**
-
-```java
-public void rebuildById(Long id) {
-    if (Objects.isNull(id)) return;
-    Order order = orderService.getById(id);
-    if (Objects.isNull(order)) { deleteById(id); return; }
-    ...
-}
-```
-
-**后：** 见 [method-structure.md](method-structure.md) Service 方法模板。
-
-### 配置字段注释
-
-**前：** `/** companyName 短语前缀匹配权重 */`
-
-**后：** `/** 公司名称短语前缀匹配权重，数值越大排序越靠前 */`
-
-### 支付回调幂等
-
-**前：**
-
-```java
-/**
- * 值得注意的是，本方法主要用于处理支付回调。
- */
-```
-
-**后：**
-
-```java
-/**
- * 支付回调处理；同一 outTradeNo 重复通知时幂等返回，不重复更新订单状态。
- */
-```
-
-### 步骤注释由简到详
-
-```java
-// 前：// 查数据
-// 后：// 加载本级分类的年份统计数据
-// 更后（有分支时）：// 确定区域条件：parentId=0 用 catId IN，parentId≠0 用父级 fullId 前缀匹配
-```
-
-## 正反例
-
-### 好
-
-- 按分级表补全，不机械全覆盖
-- Javadoc 写口径，步骤块写阶段，块内写分支
-- 步骤分块 + 块间空行 + 边界写进步骤注释
-- 块内补充口径：`// 单条失败不挡整批，方便断点续跑`
-- VO 与 Document 同字段注释口径一致
-
-### 差
-
-- 每个 getter 都加 Javadoc
-- 只有 Javadoc，长方法体内无分块、无空行
-- `// 查询未删除的`、`// 遍历列表`（复述代码）
-- `// 首先…其次…最后…`（AI 三段式）
-- `// 下面五类统计…`、`// 构建索引，供展示使用`（占位词）
-- `/** searchText 拼接字段 */`（字段名复述）
+占位词大全、套话表、正反例 → [comments-examples.md](comments-examples.md)（审查注释或去 AI 味时按需读）。
 
 ## 与代码同步
 

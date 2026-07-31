@@ -2,99 +2,26 @@
 
 与 [SKILL.md](SKILL.md) 配套。**步骤分块写法、分级表、Javadoc 标准**以 [comments.md](comments.md) 为权威；本文只讲方法体组织与私有方法抽取。
 
-## 步骤分块标杆（通用模板）
+## 步骤分块标杆
 
-- 方法 Javadoc、步骤块写法、占位词禁用法 → [comments.md](comments.md)（权威）
+- 方法 Javadoc、步骤块写法、占位词表 → [comments.md](comments.md) + [comments-examples.md](comments-examples.md)
 - 体内：每步一行 `//` 总注释 → 本步代码 → **空一行** → 下一步
-
-**何时必须分块、何时豁免** → [comments.md#步骤分块](comments.md#步骤分块)
-
-```java
-/**
- * 业务成功后解析上下文，按配置执行同步或清理。
- *
- * @param joinPoint 切点
- * @param marker    业务标记注解
- */
-@AfterReturning("@annotation(marker)")
-public void afterSuccess(JoinPoint joinPoint, BusinessMarker marker) {
-    // 解析条件表达式，不通过则不执行
-    if (!evaluateCondition(marker.condition(), joinPoint)) {
-        return;
-    }
-
-    // 解析业务主键列表
-    List<Long> ids = resolveIds(marker, joinPoint);
-    if (ids.isEmpty()) {
-        return;
-    }
-
-    // 按动作类型执行同步或删除
-    for (Long id : ids) {
-        if (Objects.isNull(id)) {
-            continue;
-        }
-        if (ActionType.DELETE == marker.action()) {
-            syncService.deleteById(id);
-        } else {
-            syncService.rebuildById(id);
-        }
-    }
-}
-```
-
-## 步骤分块标杆（编排方法）
-
-范本 A（多阶段 `build*`）完整示例见 [comments.md#范本-a编排型-build多阶段查询--汇总--组装](comments.md#范本-a编排型-build多阶段查询--汇总--组装)。
-
-```java
-/**
- * 组装报表节点（固定仅 parentId 下一级）。
- * A、B 两类数量在业务层按 catId+业务键合并。
- *
- * @param param 含 parentId、year、筛选类型列表
- * @return 带 reportData 的节点列表及末尾合计行
- */
-private List<ReportTreeVo> buildReportNodes(ReportQueryParam param) {
-    // 确定本次统计涉及的分类范围
-    List<CatalogVo> levelList = resolveTargetCatalogs(param);
-    if (CollectionUtils.isEmpty(levelList)) {
-        return Collections.emptyList();
-    }
-
-    // 提取本级 ID
-    List<Long> levelIds = extractIds(levelList);
-    // 确定区域条件：parentId=0 用 catId IN，parentId≠0 用父级 fullId 前缀匹配
-    QueryScope queryScope = resolveQueryScope(...);
-
-    // 加载本级年份统计数据
-    YearStats yearStats = loadYearStats(...);
-    // 按本级 ID 汇总统计数据
-    Map<Long, ReportDataVo> reportById = aggregateByCatalog(levelIds, yearStats);
-
-    // 组装报表节点
-    List<ReportTreeVo> nodes = buildNodes(...);
-    // 添加合计行
-    nodes.add(buildTotalRow(...));
-
-    return nodes;
-}
-```
+- **何时必须分块、何时豁免** → [comments.md#步骤分块](comments.md#步骤分块)
+- 完整范本（切面 / 编排方法 / 多路查询）→ [examples-method-structure.md](examples-method-structure.md)
 
 ## 不必步骤分块的典型场景
 
 ```java
-// Controller 一行委托
+// Controller 一行委托；R<T> = 项目统一响应包装，跟邻类
 @GetMapping("/suggest")
-public ApiResult<List<OrderVo>> suggest(@Valid OrderSuggestParam param) {
-    return ApiResult.ok(orderSuggestService.suggest(param));
+public R<List<BizVo>> suggest(@Valid SuggestParam param) {
+    return R.ok(bizService.suggest(param));
 }
 
-// @Bean 注册（逻辑一眼可读）
+// @Bean 注册（框架无关示意；具体返回类型、构造器参数跟项目）
 @Bean
-public MybatisPlusInterceptor mybatisPlusInterceptor() {
-    MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
-    interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
+public Object frameworkInterceptor() {
+    Object interceptor = createFrameworkInterceptor();
     return interceptor;
 }
 ```
@@ -109,10 +36,10 @@ public MybatisPlusInterceptor mybatisPlusInterceptor() {
 
 | 要求 | 说明 |
 |------|------|
-| 每步一块 | 块首一行 `//` 总注释，说明本步目的与跳过条件 |
+| 每步一块 | 块首一行 `//` 总注释，说明本步业务目的、口径与跳过条件 |
 | 块间空行 | 每步结束后空一行再写下步 |
 | 早退集中 | 不满足条件则 `return`/`continue`，注释写在块首 |
-| 核心步骤 | 循环、分支、金额计算等块内再补行内 `//` |
+| 核心步骤 | 循环、分支、金额计算等块内再补行内 `//`，只写业务信息，不复述技术动作 |
 | 不用 `----` | 靠空行 + 步骤注释分层，不用装饰线 |
 
 **不合格**：已触发分块条件，却整段无空行、无步骤注释、只有方法 Javadoc。
@@ -170,18 +97,18 @@ public void rebuildById(Long id) {
         return;
     }
 
-    // 加载主记录与明细
-    Order order = orderService.getById(id);
-    List<OrderDetail> details = detailService.listByOrderId(id);
+    // 查主记录与明细，后续按两者共同口径重算衍生数据
+    BizEntity entity = bizService.getById(id);
+    List<BizDetail> details = detailService.listByBizId(id);
 
     // 无记录或无明细时清空衍生数据
-    if (Objects.isNull(order) || CollectionUtils.isEmpty(details)) {
+    if (Objects.isNull(entity) || CollectionUtils.isEmpty(details)) {
         deleteById(id);
         return;
     }
 
     // 按业务规则计算衍生行
-    List<SummaryRow> rows = buildSummaryRows(order, details);
+    List<SummaryRow> rows = buildSummaryRows(entity, details);
 
     // 先删后插，保证与明细一致
     deleteById(id);
@@ -202,13 +129,13 @@ public void rebuildById(Long id) {
  */
 @Override
 @Transactional(rollbackFor = Exception.class)
-public boolean save(OrderDto dto) {
+public boolean save(BizDto dto) {
     // 入参与业务边界校验
-    validateOrder(dto, null);
+    validateBiz(dto, null);
 
-    // 转换并补审计字段
-    Order entity = OrderConvert.INSTANCE.dtoToEntity(dto);
-    entity.setOpUserid(LoginUtil.getUserId()).setOpDate(new Date());
+    // 转成可落库对象，并沿用项目审计字段写法
+    BizEntity entity = BizConvert.INSTANCE.dtoToEntity(dto);
+    // 审计字段：MetaObjectHandler 或手动 setOpUserId/setOpDate，跟 architecture.md
 
     return save(entity);
 }
@@ -221,14 +148,20 @@ public boolean save(OrderDto dto) {
 - 公开方法：多行 Javadoc + 步骤分块（已触发条件时）
 - 块间空一行；不用 `----` 装饰线
 - 复杂分支在块内补单行 `//`
+- 步骤注释只写业务口径/边界/前置条件；`查询数据库`、`遍历列表`、`封装结果` 这类实现噪音直接删
 
 ## 常见陷阱
 
 | 陷阱 | 对策 |
 |------|------|
 | 只有 Javadoc、体内无分块（已触发条件） | [comments.md#步骤分块](comments.md#步骤分块) |
-| 占位词（下面 / 补齐 / 构建索引） | [comments.md#占位词禁用法](comments.md#占位词禁用法) |
+| 占位词（下面 / 补齐 / 构建索引） | [comments-examples.md#占位词禁用法](comments-examples.md#占位词禁用法) |
+| 步骤注释只写技术动作（查库、遍历、set 字段） | 改成业务口径、过滤条件、跳过条件或删除 |
 | 给一行 Controller 委托也写步骤块 | 不必，见上文豁免场景 |
 | 过度抽私有方法 | 只抽重复或难一眼读懂的块 |
 
 更多见 [pitfalls.md](pitfalls.md)。
+
+## 存量大文件
+
+修改 500+ 行的 `*ServiceImpl` 等存量大类时，见 [incremental-change.md](incremental-change.md)（只动相关方法、不顺手整类重构）。

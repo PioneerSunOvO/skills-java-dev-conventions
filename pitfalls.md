@@ -2,7 +2,7 @@
 
 版本相关陷阱的完整对照表见 [versions.md](versions.md)「常见误判」。
 
-## 一、分层与对象
+## 1. 分层与对象
 
 | 陷阱 | 后果 | 对策 |
 |------|------|------|
@@ -12,7 +12,7 @@
 | Service 循环调 Mapper | N+1、性能差 | 批量查询 / XML 一次查 VO |
 | 在 Convert 里写业务 if | 职责混乱 | 挪到 Service |
 
-## 二、事务与并发
+## 2. 事务与并发
 
 | 陷阱 | 对策 |
 |------|------|
@@ -21,7 +21,7 @@
 | 无幂等的支付/回调接口 | 唯一键 + 状态判断或分布式锁，注释写清 |
 | 先改缓存再改库 | 以项目为准，一般先库后缓存，失败可回滚 |
 
-## 三、异常与日志
+## 3. 异常与日志
 
 | 陷阱 | 对策 |
 |------|------|
@@ -29,21 +29,22 @@
 | 空 catch | 至少 log.warn/error |
 | 业务失败只 `return false` 无说明 | 抛 `BusinessException` 或返回明确错误码 |
 | `log.info` 打大对象/敏感信息 | 脱敏；密钥永不落日志 |
-| 只捕获子异常导致漏捕 | `try-catch` 默认捕获 `Exception`，有明确约束再细分 |
-| 只打 `e.getMessage()` 无堆栈 | 用工具类打印完整堆栈（如 `ExceptionUtils.printRootCauseStackTrace(e)`）并保留错误上下文 |
+| 与邻模块 catch 风格不一致 | 默认跟同模块邻代码（回调/导入常见 `catch (Exception)`） |
+| 只打 `e.getMessage()` 无堆栈 | `log.error("…", e)` 末参传 `Throwable`；跟邻文件，不强行引入 `ExceptionUtils` |
 
-## 三·五、判空与工具类
+## 4. 判空与工具类
 
 | 陷阱 | 对策 |
 |------|------|
-| `if (x == null)` / `if (x != null)` | `Objects.isNull(x)` / `Objects.nonNull(x)` |
+| 新写片段用 `if (x == null)` | `Objects.isNull(x)` / `Objects.nonNull(x)` |
 | `list == null \|\| list.isEmpty()` | `CollectionUtils.isEmpty(list)` |
 | `str == null \|\| str.isEmpty()` | `StringUtils.isBlank(str)` |
 | `a != null && a.equals(b)` | `Objects.equals(a, b)` |
 | `if (entity == null) throw …` 多层嵌套 | `Optional.ofNullable(entity).orElseThrow(...)` |
 | 每个变量都包 `Optional` | 仅「可能为空的一次取值 + 抛/默认」时用；见 [coding-patterns.md#判空与工具类](coding-patterns.md#判空与工具类) |
+| 为达标整文件改 `== null` | 同方法邻段可对齐；**禁止**无关文件的判空重写 |
 
-## 三·六、Stream 流式处理
+## 5. Stream 流式处理
 
 | 陷阱 | 对策 |
 |------|------|
@@ -56,7 +57,7 @@
 
 详见 [coding-patterns.md#stream-流式处理](coding-patterns.md#stream-流式处理)。
 
-## 四、SQL 与性能
+## 6. SQL 与性能
 
 | 陷阱 | 对策 |
 |------|------|
@@ -65,24 +66,26 @@
 | 动态 SQL 拼接用户输入 | `#{}` 参数化 |
 | 缺索引的模糊 `%keyword%` | 评估索引、限制场景或走 ES |
 
-## 五、注释反面教材
+## 7. 注释反面教材
 
 完整规范见 [comments.md](comments.md)。常见反面：
 
 | 问题 | 示例 |
 |------|------|
 | 复述代码 | `// 遍历订单列表` |
+| 与业务无关的技术动作 | `// 查询数据库`、`// 封装返回结果`、`// 设置字段` |
 | 机翻被动 | `// 该订单被用来判断是否可退款` |
 | 占位词 | `// 下面五类…`、`// 构建索引，供展示使用`、`// 补齐字段` |
+| AI 套话 | `// 该方法用于…`、`// 确保正确性`、`// 方便后续维护` |
 | 字段名复述 | `/** companyName 匹配权重 */` |
 | 与实现不符 | `// 异步通知下游` ← 实际同步 HTTP |
 | 机械全覆盖 | 每个 getter / 一行委托都加多行 Javadoc |
 | Swagger 与 Javadoc 双写同义 | Controller 二选一即可 |
 | Javadoc 与首步骤块重复 | 方法注释与 `// 查询xxx` 写同一句 |
 
-占位词与推荐改法 → [comments.md#占位词禁用法](comments.md#占位词禁用法)
+占位词与推荐改法 → [comments-examples.md#占位词禁用法](comments-examples.md#占位词禁用法)
 
-## 六、方法结构
+## 8. 方法结构
 
 | 陷阱 | 后果 | 对策 |
 |------|------|------|
@@ -96,7 +99,7 @@
 
 其余（单行 Javadoc、Controller 分块、装饰线等）→ [comments.md](comments.md) 与 [method-structure.md](method-structure.md)。
 
-## 七、格式与排版（版本无关）
+## 9. 格式与排版（版本无关）
 
 以下与 JDK、Spring Boot / Cloud、持久层选型无关；换项目仍适用。
 
@@ -106,7 +109,7 @@
 | 长行与首参数对齐造成左侧空洞 | 续行固定缩进（见 coding-patterns.md「长行换行」） |
 | skill 示例绑定某一仓库的类名或自定义注解 | 示例用占位名；具体注解以邻代码与 versions.md 画像为准 |
 
-## 八、版本与环境（要点）
+## 10. 版本与环境（要点）
 
 | 陷阱 | 对策 |
 |------|------|
@@ -118,31 +121,42 @@
 
 语法表、持久层分支、注入风格详见 [versions.md](versions.md)。
 
-## 九、AI 生成代码的气味
+## 11. AI 生成代码的气味
 
 写代码和写注释时警惕：
 
 - 无意义的 `// 处理异常` 包裹已有 try-catch
 - 违背 [comments.md 分级表](comments.md)：给可省略项也加多行 Javadoc
 - 三层对称 bullet：`首先 / 其次 / 最后`
-- 占位词：`下面…`、`补齐`、`构建索引`（指 Map）、`供…展示`、`维度转换` → 见 [占位词禁用法](comments.md#占位词禁用法)
+- 占位词：`下面…`、`补齐`、`构建索引`（指 Map）、`供…展示`、`维度转换` → 见 [comments-examples.md#占位词禁用法](comments-examples.md#占位词禁用法)
 - 手写 `== null` / `!= null` 判对象（应用 `Objects.isNull` / `Objects.nonNull`）
 - 集合判空写成 `list == null || list.isEmpty()`（应用 `CollectionUtils.isEmpty`）
 - 字符串判空写成 `str == null || str.isEmpty()`（应用 `StringUtils.isBlank`）
 - 简单 for 硬改多层 Stream，或 Stream/forEach 内查库（N+1）
 - 过度防御：处处 `Optional` 嵌套却无 null 风险
 - 过度抽私有方法：`handleXxx` / `processData` 只调用一次
-- 引入项目未使用的工具类、设计模式（策略工厂全家桶）
+- 引入项目未使用的 JSON 库新 API（Fastjson/Jackson 混用） | 跟邻模块；见 [versions.md#老旧依赖与第三方组件](versions.md#老旧依赖与第三方组件)
 - 擅自升级依赖或改 `pom` 版本
 - 类注释 `@description` 为空或写 CRUD 功能列表
 
 **原则**：与邻文件比「多出来的抽象」若无明确收益，删掉。
 
-## 十、交付清单（完整）
+## 12. 存量大文件
+
+| 陷阱 | 对策 |
+|------|------|
+| 为统一风格整文件改判空 / Stream | 只改任务相关片段，见 [incremental-change.md](incremental-change.md) |
+| 在巨型方法中间塞大段逻辑 | 抽 `validate*` / `build*` 私有方法 |
+| 改 A 功能误动 B 的私有方法 | 最小 diff；必要时新增方法而非改共享私有逻辑 |
+| 跨服务小改未评估契约 | Feign / MQ 涉及 api 模块时先设计，见 [versions.md#Spring Cloud 分支](versions.md#spring-cloud-分支) |
+
+<a id="完整交付清单"></a>
+
+## 13. 交付清单（完整）
 
 ### 环境与版本
 
-- [ ] 已读 `versions.md` 并完成环境画像
+- [ ] 环境画像已明确：项目 rules / 项目 skill 已写明时可直接采用；不明时再读 `versions.md`
 - [ ] Java 语法与 `pom`/`gradle` 中 `java.version` 一致
 - [ ] `javax` / `jakarta` 与 Spring Boot 代际一致（邻文件 import 已核对）
 - [ ] 持久层 API 与依赖一致（MP / MyBatis / JPA，非误判）
@@ -166,12 +180,11 @@
 
 ### 质量
 
-- [ ] 无 `== null`/`!= null` 判对象；集合用 `CollectionUtils`；字符串用 `StringUtils`；查无则抛用 `Optional.orElseThrow`
+- [ ] 新写片段判空用工具类；未为规范做无关文件的 `== null` / `ObjectUtil` 重写
 - [ ] Stream 仅用于能简化读写的转换/聚合；无 forEach 查库、无过度嵌套
 - [ ] 业务异常用项目统一异常类
-- [ ] 日志带上下文，异常保留堆栈
-- [ ] `try-catch` 默认捕获 `Exception`，未遗漏异常分支
-- [ ] 异常日志包含完整堆栈（可用 `ExceptionUtils.printRootCauseStackTrace(e)`）
+- [ ] 日志带上下文，异常保留堆栈，写法跟邻模块一致
+- [ ] `try-catch` 风格与同模块一致；无邻文件时再统一 `Exception`
 
 ### 注释与类头
 
@@ -180,8 +193,10 @@
 - [ ] 新增 Java 类含 `@description` + `@author` + `@since`；`@author` 非 AI 工具名
 - [ ] 「必须」项已补：公开业务方法、ExceptionHandler/Bean、配置/Document/对外 VO 字段等
 - [ ] 已触发步骤分块条件的方法：块间空一行，步骤注释含边界
-- [ ] 无 AI 套话、占位词、机翻味、复述代码、字段名复述（见 [comments.md 30 秒自检](comments.md#30-秒自检审查口令)）
+- [ ] 注释只写业务口径/边界/单位/幂等；无与业务无关的技术动作说明
+- [ ] 无 AI 套话、占位词、机翻味、复述代码、字段名复述（见 [comments.md 30 秒自检](comments.md#30-秒自检审查口令) 与 [comments-examples.md](comments-examples.md)）
 - [ ] Controller：Javadoc 与 Swagger 未双写同义；与邻类风格一致
+- [ ] YAML 注释无「本节用于…」「下面是…」等空话；有单位/开关差异时已写清
 
 ### 方法结构
 
