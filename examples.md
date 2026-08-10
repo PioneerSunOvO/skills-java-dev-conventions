@@ -2,7 +2,7 @@
 
 配合 [versions.md](versions.md) 使用。示例中的类名、响应包装均为占位，实际以项目为准。
 
-注释润色前后对照 → [comments-rewrites.md](comments-rewrites.md)  
+注释润色/占位词 → [comments-examples.md](comments-examples.md#润色对照)  
 步骤分块完整范本 → [examples-method-structure.md](examples-method-structure.md)
 
 ## 版本探测示例

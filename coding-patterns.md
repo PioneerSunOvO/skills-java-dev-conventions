@@ -1,152 +1,59 @@
 # 编码习惯速查
 
-跨项目通用的 Java 后端习惯。具体包名、基类、工具类以**当前仓库邻代码**为准；与项目 `CLAUDE.md` / rules 冲突时服从项目。
+跨项目通用习惯。包名/基类/工具类以**邻代码**为准；与项目 rules 冲突时服从项目。
 
 ## 类注释
 
-标准三要素与变体见 [comments.md#类注释硬性](comments.md#类注释硬性)。切面类须在类注释说明与事务、幂等相关的边界。
+三要素见 [comments.md#类注释硬性](comments.md#类注释硬性)。切面类须说明与事务、幂等边界。
 
 <a id="判空与工具类"></a>
 
 ## 判空与工具类
 
-> **强约束**：新代码禁止 `== null` / `!= null` 判对象；禁止对可能 null 的集合直接 `.isEmpty()`。动手前看邻文件 import，包名跟邻类。
+> **强约束**：新代码禁 `== null` / `!= null` 判对象；禁对可能 null 的集合直接 `.isEmpty()`。import **跟邻文件**。
 >
-> **Why**：`Objects` / `StringUtils` / `CollectionUtils` 语义一致、可读性稳定，并避免对可能为 null 的集合直接调实例方法 NPE；**仅约束本次新写片段**，禁止为统一风格批量改旧判空。
-
-### 场景对照
+> **Why**：语义一致、避免 NPE；**只约束本次新写片段**，禁止为统一风格批量改旧判空。
 
 | 场景 | 必须用 | 禁止 |
 |------|--------|------|
-| 对象 null | `Objects.isNull()` / `Objects.nonNull()` | `== null`、`!= null` |
-| 字符串空白 | `commons-lang3` 的 `StringUtils.isBlank()` / `isNotBlank()` | `str == null \|\| str.isEmpty()`、持久层自带 `StringUtils`（新代码不用） |
-| 集合/Map 空 | `CollectionUtils.isEmpty()` / `isNotEmpty()` | `list == null \|\| list.isEmpty()`、`map.size() == 0` |
-| 等值比较 | `Objects.equals(a, b)` | `a != null && a.equals(b)` |
-| 查无则抛 | `Optional.ofNullable(x).orElseThrow(...)` | `if (x == null) throw …` 多层嵌套 |
-| 查无给默认 | `Optional.ofNullable(x).orElse(def)` | 冗长三元（简单字面量三元可保留） |
+| 对象 null | `Objects.isNull` / `nonNull` | `== null` / `!= null` |
+| 字符串空白 | lang3 `StringUtils.isBlank` | `str == null \|\| str.isEmpty()`；新代码不用持久层 `StringUtils` |
+| 集合/Map 空 | `CollectionUtils.isEmpty`（包名跟邻） | `list == null \|\| list.isEmpty()` |
+| 等值 | `Objects.equals` | `a != null && a.equals(b)` |
+| 查无则抛 / 默认 | `Optional.ofNullable(...).orElseThrow` / `orElse` | 多层 `if null`；层层 Optional 防御 |
 
-老代码常见 `== null`、Hutool `ObjectUtil`、MyBatis `StringUtils`——**改邻段时对齐邻段**；**新写片段**仍用上表。**禁止**为达标而做无关文件的判空重写。
+老代码 `== null` / Hutool / MyBatis `StringUtils`：**改邻段时对齐邻段**；新写仍用上表。
 
 <a id="多工具库并存"></a>
 
 ### 多工具库并存
 
-存量仓库常同时有 **JDK `Objects`**、**Apache Commons Lang3**、**Commons Collections**、**Hutool**。决策顺序：
-
 ```
-1. 看当前文件顶部 import —— 该文件主流用哪套？
-2. 新写片段跟同文件、同方法邻段 —— 不引入第三套风格
-3. 全新文件 / 新模块且无邻例时，优先 JDK + commons-lang3（见上表）
-4. 禁止同一方法内混用 Objects.isNull 与 ObjectUtil.isNull
-5. 禁止仅为规范把大文件整文件改判空
+1. 看本文件 import 主流用哪套
+2. 新写跟同文件邻段，不引入第三套
+3. 新模块无邻例 → JDK + commons-lang3
+4. 禁止同方法混用 Objects.isNull 与 ObjectUtil.isNull
+5. 禁止仅为规范整文件改判空
 ```
 
-| 能力 | 优先（新模块无邻例） | 跟邻代码时常见 |
-|------|----------------------|----------------|
-| 对象 null | `Objects.isNull` / `nonNull` | Hutool `ObjectUtil`、或 `== null`（仅邻段已如此） |
-| 对象非空（含空串） | `Objects.nonNull` + 业务判断 | `ObjectUtils.isNotEmpty`（commons-lang3） |
-| 字符串空白 | `StringUtils.isBlank`（**lang3**） | 同左；勿用 MyBatis `StringUtils` |
-| 集合/Map 空 | `CollectionUtils.isEmpty`（**跟邻文件包名**） | `org.apache.commons.collections` 或 `spring` 版，跟邻 import |
-| MP 动态条件 | `.eq(Objects.nonNull(v), col, v)` | `.eq(StringUtils.isNotBlank(s), col, s)` 等，跟邻 Wrapper 链 |
+`CollectionUtils` / `StringUtils` 多包同名 → **以邻文件为准**。
 
-**import 核对**：`CollectionUtils` 有 `commons-collections`、`commons-collections4`、`springframework` 多个包；`StringUtils` 有 lang3 与 mybatis 同名类——**以邻文件为准**，不擅自换包。
-
-### 示例
-
-```java
-// 集合早返回
-if (CollectionUtils.isEmpty(ids)) {
-    return Collections.emptyList();
-}
-
-// 对象判空 + 业务异常
-if (Objects.isNull(order)) {
-    throw new BusinessException("订单不存在");
-}
-
-// Optional：查库无则抛（Lambda 内抛项目业务异常）
-Order order = Optional.ofNullable(getById(id))
-        .orElseThrow(() -> new BusinessException("订单不存在"));
-
-// Optional：空则给默认（替代 getXxx() != null ? getXxx() : ""）
-String remark = Optional.ofNullable(dto.getRemark()).orElse("");
-
-// 动态条件：值为 null 时不拼进 WHERE（MyBatis-Plus 示例）
-.eq(Objects.nonNull(param.getStatus()), Entity::getStatus, param.getStatus())
-.in(CollectionUtils.isNotEmpty(param.getIds()), Entity::getId, param.getIds())
-```
-
-### Optional 边界
-
-| 适合 | 不适合 |
-|------|--------|
-| `getById` / `getOne` 查无则抛 | 普通 if 分支里已有明确 null 处理 |
-| 链式取值给默认值（`orElse` / `orElseGet`） | 层层 `Optional.ofNullable(a).map(...).map(...)` 防御 |
-| `filter(Objects::nonNull)` 配合 Stream | 把每个局部变量都包一层 Optional |
-
-`Optional` 不嵌套防御；无 null 风险的变量不必包 Optional。
+`Optional`：适合「一次取值 + 抛/默认」；不适合无 null 风险的层层 `.map`。
 
 <a id="stream-流式处理"></a>
 
 ## Stream 流式处理
 
-> **原则**：可读性第一。能**明显**简化集合转换、过滤、聚合时用 Stream；不过度函数式、不为炫技。
+> 可读优先：能**明显**简化转换/过滤/聚合再用；不为炫技。
 
-### 适合用 Stream
+| 适合 Stream | 保留 for |
+|-------------|----------|
+| `filter/map/collect`、分组/`toMap`、数值聚合 | 2～3 行简单遍历；多分支/`break`；要下标 |
+| Entity→VO 批量映射 | 循环内写库/副作用；逐步早返回的校验 |
 
-| 场景 | 示例思路 |
-|------|----------|
-| 列表 → 另一列表 | `filter` + `map` + `collect` |
-| 分组 / 转 Map | `Collectors.groupingBy` / `toMap` |
-| 数值聚合 | `mapToInt(...).sum()`、`reduce` |
-| Entity → VO 批量映射 | `map(XxxConvert.INSTANCE::entityToVo).collect(...)` |
-| 去 null 后转换 | `filter(Objects::nonNull).map(...)` |
+**硬门禁**：禁 `stream`/`forEach` 内单条查库/RPC/MQ（N+1）；链 ≤ 4 步；禁 `peek` 写业务；禁嵌套 Stream；禁默认 `parallelStream`。Java 8 用 `.collect(Collectors.toList())`。
 
-```java
-List<Long> ids = orders.stream()
-        .filter(Objects::nonNull)
-        .map(Order::getId)
-        .collect(Collectors.toList());
-
-Map<Long, List<OrderDetail>> grouped = details.stream()
-        .collect(Collectors.groupingBy(OrderDetail::getOrderId));
-
-int totalQty = items.stream().mapToInt(ItemVo::getQuantity).sum();
-```
-
-### 保留 for / 增强 for
-
-| 场景 | 原因 |
-|------|------|
-| 2～3 行简单遍历 | for 更直观，不必强行 Stream |
-| 循环内多分支、`continue`/`break` | Stream 难读 |
-| 需要下标 | 传统 `for` 或 `IntStream.range` |
-| 循环体有副作用（写库、累加外部状态、发消息） | Stream 易藏 N+1，语义也不清晰 |
-| 业务校验需逐步早返回 | 抽私有方法 + for，或卫语句 |
-
-```java
-// 简单遍历：for 足够清晰时不必改 Stream
-for (OrderDetail detail : details) {
-    validateDetail(detail);
-}
-
-// 反例：forEach 里查库 → N+1
-ids.forEach(id -> orderMapper.selectById(id));  // 禁止
-```
-
-### 硬门禁边界
-
-- **禁止** `stream` / `forEach` 内单条查库、RPC、发 MQ（与 for 循环同理，见 data-access.md；属 N+1 **硬门禁**）
-- 链式操作 **≤ 4 步**；更长则拆中间变量或抽 `buildXxxList(...)` 私有方法
-- **禁止** `peek` 承载业务逻辑；**禁止**多层嵌套 Stream（`flatMap` 套 `flatMap` 套 `map`）
-- **禁止**默认 `parallelStream()`（除非有明确性能依据且邻模块已有先例）
-- 收集结果跟 JDK 版本：Java 8 用 `.collect(Collectors.toList())`；高版本见 [versions.md](versions.md)
-
-### 可读性自检（30 秒）
-
-1. 去掉 Stream 后，等价 for 是否**更短或一样短**？→ 优先 for  
-2. 链上能否一眼看出「输入 → 过滤什么 → 输出什么」？→ 否则拆分  
-3. 有没有在 lambda 里写超过 3 行业务？→ 抽方法引用或私有方法  
+自检：去掉 Stream 后 for 更短？→ 用 for。lambda 超 3 行业务？→ 抽方法。
 
 <a id="MapStruct"></a>
 
@@ -160,140 +67,51 @@ public interface BizConvert {
 }
 ```
 
-- 转换类命名统一使用 `*Convert` 后缀（如 `BizConvert`），不使用 `*Converter`、`*MapperStruct` 等变体
-- 列表不同映射目标：`@Named` + `@BeanMapping(qualifiedByName = ...)`
-- 枚举展示名：`@Mapping(expression = "java(...)")` + `@Mapper(imports = {...})`
-- 多表 VO：**Mapper XML 一次查出**，不在 Service 循环拼
+- 后缀统一 `*Convert`
+- 多目标：`@Named` + `@BeanMapping(qualifiedByName=...)`
+- 枚举名：`expression` + `@Mapper(imports=...)`
+- 多表 VO：XML 一次查，不在 Service 循环拼
 
-expression 示例见 [examples.md](examples.md)。分层边界见 [architecture.md](architecture.md)。
+示例见 [examples.md](examples.md)；分层见 [architecture.md](architecture.md)。
 
-## Service 模式
+## Service / 异常 / AOP（摘要）
 
-| 模式 | 做法 |
-|------|------|
-| 写操作校验 | `save`/`update` 入口调 `validateXxx` |
-| 复杂分页 VO | Mapper XML / 自定义 SQL 直出 VO |
-| 审计字段 | 按项目：MetaObjectHandler 或 Service 手动赋值 |
-| 批处理容错 | 单条 catch + log.error，注释说明续跑策略 |
-| 同类自调用 | 注入自身代理，保证 AOP / 事务生效 |
+| 项 | 做法 |
+|----|------|
+| 写入口 | `validateXxx`；复杂列表 VO 用 XML 直出 |
+| 审计 | MetaObjectHandler 或 Service 手动，跟邻 Entity |
+| 自调用事务 | 注入自身代理 |
+| catch | 跟邻模块；日志末参带 `Throwable`；禁吞异常 / 只打 `getMessage()` |
+| 副作用 | AOP 或 Service 显式调用；不写在 Controller |
 
-## 异常捕获与堆栈
+API 入参 Param/DTO，出参 VO+统一包装，Entity 不进 Controller。
 
-- `try-catch` **默认跟同模块邻代码**；支付回调、导入监听等常见 `catch (Exception e)`；无邻文件时再统一 `Exception`
-- 捕获后**跟邻文件**打日志：常见 `log.error("说明, key={}", val, e)` 末参传 `Throwable` 保留堆栈
-- 禁止只记录 `e.getMessage()` 或吞掉堆栈；邻模块无先例时不强行引入 `ExceptionUtils` 等工具类
+## 读邻代码时
 
-## AOP 与副作用
+新代码跟同模块：`CollectionUtils` 包名、注入风格、GET/POST、分页封装类名。不擅自全库统一，除非用户要求重构。
 
-- 副作用（同步缓存、写衍生表）优先 AOP 或 Service 内显式调用，与邻模块一致
-- 切面须在类注释说明相对事务的顺序
-- 不在 Controller 里散落副作用逻辑
-
-## 对象边界
-
-| 方向 | 类型 |
-|------|------|
-| API 入参 | `Param`（分页）、`DTO`（非分页） |
-| API 出参 | `VO` + 统一响应包装 |
-| ORM | `Entity`，不进 Controller |
-| 边界转换 | MapStruct `XxxConvert.INSTANCE` |
-
-## 读邻代码时留意
-
-不同仓库可能并存多种风格，**新代码跟同模块邻类**：
-
-- 多种 `CollectionUtils` / `StringUtils` 包名
-- 字段 `@Autowired` vs Lombok `@Setter` 注入
-- GET vs POST 读接口
-- 分页出参封装类名
-
-不擅自统一全库风格，除非用户明确要求重构。
-
-## 方法结构
-
-见 [comments.md](comments.md)（分级表、Javadoc、步骤分块）与 [method-structure.md](method-structure.md)（编排与私有方法抽取）。
+方法结构 → [comments.md](comments.md)、[method-structure.md](method-structure.md)。
 
 <a id="注解排列"></a>
 
-## 注解排列
+## 注解排列（风格建议）
 
-> **版本无关**：与 JDK、Spring Boot / Cloud 代际、API 文档体系（Swagger2 / springdoc / 无文档注解）无关。适用于任意 Java 注解——Spring Web、JPA、Bean Validation、Lombok、安全、项目自定义等，**只排顺序，不规定必须用哪些注解**。
->
-> **Why**：同一声明处注解长短交错时，短在上、长在下更易扫读；与具体框架无关的排版约定，换仓仍适用。
+> **Why**：短上长下更好扫读；与框架代际无关。
 
-同一声明处（类、方法、字段、参数等）挂多个注解时，**按注解整行文本从短到长**自上而下排列。
-
-**计量方式**：以源码中 `@` 起至该行注解结束的字符数为准（含属性、括号、引号）；多行注解按首行计。
-
-**推荐**（类级；下列注解仅示意顺序，以当前项目实际使用的为准）：
+同一声明处多个注解，按**整行文本从短到长**排列（多行注解按首行计）。长度相同跟邻方法即可。改邻代码不顺手大面积重排。
 
 ```java
 @Slf4j
 @RestController
 @RequestMapping("/orders")
-public class OrderController {
-```
+public class OrderController { }
 
-**推荐**（方法级）：
-
-```java
 @Override
 @GetMapping("/{id}")
 @Transactional(rollbackFor = Exception.class)
-public BizVo get(@PathVariable Long id) {
+public BizVo get(@PathVariable Long id) { }
 ```
 
-**推荐**（参数级）：
+## 长行换行（风格建议）
 
-```java
-public void update(@PathVariable Long id, @Valid @RequestBody BizDto dto) {
-```
-
-**不推荐**（长短交错）：
-
-```java
-@Transactional(rollbackFor = Exception.class)
-@GetMapping("/{id}")
-```
-
-补充：
-
-- 长度相同时，与邻方法一致即可，不必强行微调
-- 项目特有注解（操作日志、模块标记、权限等）与框架注解混排时，同样按长度排序
-- 改邻代码时不必为统一风格大面积重排既有注解，除非用户明确要求格式化
-
-## 长行换行
-
-一行过长需换行时，**续行用固定缩进**（相对语句起始再缩进一级，通常 +4 空格），保持左缘整齐；避免 IDE「与首参数/括号对齐」造成大片左侧空白，也避免在 `(` 后立刻断行、下一行堆满参数导致首行只剩半截、视觉上割裂。
-
-**推荐**（每参数一行，续行缩进一致）：
-
-```java
-MethodBasedEvaluationContext context = new MethodBasedEvaluationContext(
-        joinPoint.getTarget(),
-        method,
-        joinPoint.getArgs(),
-        parameterNameDiscoverer);
-```
-
-**不推荐**（与首参数对齐，左侧空洞）：
-
-```java
-MethodBasedEvaluationContext context = new MethodBasedEvaluationContext(joinPoint.getTarget(),
-                                                                            method,
-                                                                            joinPoint.getArgs(),
-                                                                            parameterNameDiscoverer);
-```
-
-**不推荐**（`(` 后立刻断行，首行语义不完整）：
-
-```java
-MethodBasedEvaluationContext context = new MethodBasedEvaluationContext(
-        joinPoint.getTarget(), method, joinPoint.getArgs(), parameterNameDiscoverer);
-```
-
-补充习惯：
-
-- 在逗号、运算符、`=` 后等**语义完整处**断行，不在类型名与 `(` 之间硬拆
-- 链式调用：`.` 起新行，或按调用链分段，续行缩进一致
-- 能在一行内读完（约 120 字符内）则不必强行换行
+续行用**固定缩进**（通常 +4），不在 `(` 后立刻断行堆参，不用「与首参数对齐」。能在约 120 字符内读完则可不换行。链式调用 `.` 起新行，缩进一致。

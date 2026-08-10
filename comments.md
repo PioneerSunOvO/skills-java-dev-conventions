@@ -2,8 +2,7 @@
 
 与 [SKILL.md](SKILL.md) 配套。**注释权威文件**：分级表、步骤分块、字段规则以此为准。类三要素为**硬门禁**，其余注释规则为**强约束**。项目 `CLAUDE.md` / rules 中的类注释模板优先。
 
-形状示例（标杆 Javadoc、ExceptionHandler、MapStruct 等）→ [comments-templates.md](comments-templates.md)（按需）。  
-占位词 / 套话 / 正反例 → [comments-examples.md](comments-examples.md)；润色对照 → [comments-rewrites.md](comments-rewrites.md)。
+占位词 / 套话 / 形状模板 / 润色对照 → [comments-examples.md](comments-examples.md)（按需）。
 
 ## 一页速查
 
@@ -82,7 +81,7 @@
 - `@param`：业务含义与取值约定；禁止「查询参数」「入参对象」
 - `@return`：结构/口径；空/0 含义；可用 `→`（`void` 不写，副作用写正文）
 
-骨架表示例与完整标杆代码 → [comments-templates.md](comments-templates.md)。
+骨架表示例与完整标杆代码 → [comments-examples.md#形状模板](comments-examples.md#形状模板)。
 
 | 行 | 写什么 |
 |----|--------|
@@ -154,7 +153,7 @@
 - 写业务含义、单位、条件展示；**禁止**用 Java 字段名当注释
 - **必须写**：`@ConfigurationProperties`、ES Document/mapping、对外 Param/VO、含义不直观的枚举常量
 - 同域字段在 Document/VO/DTO 间口径一致
-- 位置与示例 → [comments-templates.md](comments-templates.md)
+- 位置与示例 → [comments-examples.md#形状模板](comments-examples.md#形状模板)
 
 <a id="语气与排版"></a>
 
