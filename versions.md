@@ -77,6 +77,8 @@ Java: 17 | Spring Boot: 3.2 | Spring Cloud: 2023.0.x
 
 ---
 
+<a id="spring-cloud-分支"></a>
+
 ## Spring Cloud 分支
 
 检测到 `spring-cloud-dependencies` 或子模块含 `*-gateway`、`*-api`、Feign 接口时，进入 Cloud 画像：
@@ -146,8 +148,8 @@ SB3 全面 `jakarta.*`；SB2 保持 `javax.*`，不提前迁移。
 
 | 信号 | 做法 |
 |------|------|
-| MP + 项目自定义分页封装 | `PageInfo` / `Paging`、`PageResult`、包装 `IPage` 等；跟项目封装 |
-| PageHelper | `PageHelper.startPage()` + 项目分页出参 |
+| MP + 项目自定义分页封装 | 跟邻 Controller/Service 的封装类（常见 `PageResult`、包装 `IPage` 等；**类名以项目为准**） |
+| PageHelper | `PageHelper.startPage()` + 出参跟邻代码（常含 `com.github.pagehelper.PageInfo`） |
 | MyBatis-Plus 原生 | `Page<Entity>` + `selectPage` |
 | Spring Data JPA | `Pageable` + `Page<T>` |
 
@@ -186,6 +188,8 @@ SB3 全面 `jakarta.*`；SB2 保持 `javax.*`，不提前迁移。
 | 引入项目未用的 JSON 库新 API | 跟邻代码；见下文「老旧依赖」 |
 
 ---
+
+<a id="老旧依赖与第三方组件"></a>
 
 ## 老旧依赖与第三方组件
 

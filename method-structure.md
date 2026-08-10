@@ -44,15 +44,22 @@ public Object frameworkInterceptor() {
 
 **不合格**：已触发分块条件，却整段无空行、无步骤注释、只有方法 Javadoc。
 
+<a id="公开方法编排优先"></a>
+
 ## 公开方法：编排优先
+
+行数口径分工（避免与 pitfalls / incremental 打架）：
+
+| 口径 | 含义 |
+|------|------|
+| 目标约 **15–50 行**（含空行与分块注释） | **新代码舒适区**：公开编排方法尽量落在此区间 |
+| 交付自检「约 **15–40 行**或已分块」 | pitfalls 可勾选近似；已分块即可，不与上条冲突 |
+| **>80 行且无分块** | **新代码不合格**；存量大方法见 [incremental-change.md](incremental-change.md) 作重构信号 |
 
 | 指标 | 建议 |
 |------|------|
-| 目标行数 | 约 15–50 行（含空行与分块注释） |
 | ≥ 15 行或有多个业务阶段 | 必须步骤分块（见 comments.md） |
-| 超过 80 行且无分块 | 不合格 |
-
-业务复杂时用步骤分块保持可读，不要机械拆成多个一行 wrapper。
+| 业务复杂 | 用步骤分块保持可读，不要机械拆成多个一行 wrapper |
 
 ## 何时抽私有方法（按需）
 
@@ -84,39 +91,7 @@ public Object frameworkInterceptor() {
 
 ## Service 方法模板
 
-```java
-/**
- * 重算并落库衍生数据。
- * 主记录不存在或明细为空时清空；有数据则先删后插。
- *
- * @param id 业务主键
- */
-public void rebuildById(Long id) {
-    // 主键为空直接返回
-    if (Objects.isNull(id)) {
-        return;
-    }
-
-    // 查主记录与明细，后续按两者共同口径重算衍生数据
-    BizEntity entity = bizService.getById(id);
-    List<BizDetail> details = detailService.listByBizId(id);
-
-    // 无记录或无明细时清空衍生数据
-    if (Objects.isNull(entity) || CollectionUtils.isEmpty(details)) {
-        deleteById(id);
-        return;
-    }
-
-    // 按业务规则计算衍生行
-    List<SummaryRow> rows = buildSummaryRows(entity, details);
-
-    // 先删后插，保证与明细一致
-    deleteById(id);
-    if (CollectionUtils.isNotEmpty(rows)) {
-        this.saveBatch(rows);
-    }
-}
-```
+完整范本（含步骤分块与边界注释）见 [examples-method-structure.md 范本 D](examples-method-structure.md#步骤分块范本-d-service方法)。此处不重复贴代码，避免双份维护漂移。
 
 ## 写操作入口
 
@@ -135,7 +110,7 @@ public boolean save(BizDto dto) {
 
     // 转成可落库对象，并沿用项目审计字段写法
     BizEntity entity = BizConvert.INSTANCE.dtoToEntity(dto);
-    // 审计字段：MetaObjectHandler 或手动 setOpUserId/setOpDate，跟 architecture.md
+    // 审计字段：MetaObjectHandler 或手动赋值；setter 名跟邻 Entity（见 architecture.md）
 
     return save(entity);
 }

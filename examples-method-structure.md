@@ -2,6 +2,8 @@
 
 配合 [method-structure.md](method-structure.md) 与 [comments.md](comments.md#步骤分块) 使用。这里专放完整范本，主文只保留规则与入口。
 
+<a id="步骤分块范本-a编排型-build"></a>
+
 ## 范本 A：编排型 build
 
 适用：报表节点组装、PDF/导出数据组装等。Javadoc 写口径与归并规则；体内按阶段分块，块间空一行。
@@ -9,7 +11,7 @@
 ```java
 /**
  * 组装报表节点（固定仅 parentId 下一级）。
- * A、B 两类数量在业务层按 catId+业务键合并；内部 ID 与业务键在业务层换算。
+ * A、B 两类数量在业务层按 categoryId+业务键合并；内部 ID 与业务键在业务层换算。
  *
  * @param param 含 parentId、year、筛选类型列表
  * @return 带 reportData 的节点列表及末尾合计行
@@ -23,7 +25,7 @@ private List<ReportTreeVo> buildReportNodes(ReportQueryParam param) {
 
     // 提取本级 ID，后续统计只在当前层级内归并
     List<Long> levelIds = extractIds(levelList);
-    // 确定区域条件：parentId=0 用 catId IN，parentId≠0 用父级 fullId 前缀匹配
+    // 确定区域条件：parentId=0 用 categoryId IN，parentId≠0 用父级 path 前缀匹配
     QueryScope queryScope = resolveQueryScope(param.getParentId(), levelList, ...);
 
     // 加载本级年份统计数据
@@ -39,6 +41,9 @@ private List<ReportTreeVo> buildReportNodes(ReportQueryParam param) {
     return nodes;
 }
 ```
+
+<a id="步骤分块范本-b预览生成型-generate"></a>
+<a id="多路并行查询块内写法"></a>
 
 ## 范本 B：预览生成型 generate
 
@@ -85,6 +90,8 @@ public PreviewVo generateDetail(GenerateParam param) {
 }
 ```
 
+<a id="步骤分块范本-c切面方法"></a>
+
 ## 范本 C：切面方法
 
 ```java
@@ -121,6 +128,8 @@ public void afterSuccess(JoinPoint joinPoint, BusinessMarker marker) {
 }
 ```
 
+<a id="步骤分块范本-d-service方法"></a>
+
 ## 范本 D：Service 方法
 
 ```java
@@ -156,6 +165,8 @@ public void rebuildById(Long id) {
     }
 }
 ```
+
+<a id="步骤分块范本-e多数据源查询"></a>
 
 ## 范本 E：多数据源查询
 

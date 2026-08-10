@@ -4,11 +4,15 @@
 
 ## 类注释
 
-标准三要素与变体见 [comments.md#类注释硬性](comments.md)。切面类须在类注释说明与事务、幂等相关的边界。
+标准三要素与变体见 [comments.md#类注释硬性](comments.md#类注释硬性)。切面类须在类注释说明与事务、幂等相关的边界。
+
+<a id="判空与工具类"></a>
 
 ## 判空与工具类
 
-> **硬性**：新代码禁止 `== null` / `!= null` 判对象；禁止对可能 null 的集合直接 `.isEmpty()`。动手前看邻文件 import，包名跟邻类。
+> **强约束**：新代码禁止 `== null` / `!= null` 判对象；禁止对可能 null 的集合直接 `.isEmpty()`。动手前看邻文件 import，包名跟邻类。
+>
+> **Why**：`Objects` / `StringUtils` / `CollectionUtils` 语义一致、可读性稳定，并避免对可能为 null 的集合直接调实例方法 NPE；**仅约束本次新写片段**，禁止为统一风格批量改旧判空。
 
 ### 场景对照
 
@@ -22,6 +26,8 @@
 | 查无给默认 | `Optional.ofNullable(x).orElse(def)` | 冗长三元（简单字面量三元可保留） |
 
 老代码常见 `== null`、Hutool `ObjectUtil`、MyBatis `StringUtils`——**改邻段时对齐邻段**；**新写片段**仍用上表。**禁止**为达标而做无关文件的判空重写。
+
+<a id="多工具库并存"></a>
 
 ### 多工具库并存
 
@@ -80,6 +86,8 @@ String remark = Optional.ofNullable(dto.getRemark()).orElse("");
 
 `Optional` 不嵌套防御；无 null 风险的变量不必包 Optional。
 
+<a id="stream-流式处理"></a>
+
 ## Stream 流式处理
 
 > **原则**：可读性第一。能**明显**简化集合转换、过滤、聚合时用 Stream；不过度函数式、不为炫技。
@@ -126,9 +134,9 @@ for (OrderDetail detail : details) {
 ids.forEach(id -> orderMapper.selectById(id));  // 禁止
 ```
 
-### 硬性边界
+### 硬门禁边界
 
-- **禁止** `stream` / `forEach` 内单条查库、RPC、发 MQ（与 for 循环同理，见 data-access.md）
+- **禁止** `stream` / `forEach` 内单条查库、RPC、发 MQ（与 for 循环同理，见 data-access.md；属 N+1 **硬门禁**）
 - 链式操作 **≤ 4 步**；更长则拆中间变量或抽 `buildXxxList(...)` 私有方法
 - **禁止** `peek` 承载业务逻辑；**禁止**多层嵌套 Stream（`flatMap` 套 `flatMap` 套 `map`）
 - **禁止**默认 `parallelStream()`（除非有明确性能依据且邻模块已有先例）
@@ -139,6 +147,8 @@ ids.forEach(id -> orderMapper.selectById(id));  // 禁止
 1. 去掉 Stream 后，等价 for 是否**更短或一样短**？→ 优先 for  
 2. 链上能否一眼看出「输入 → 过滤什么 → 输出什么」？→ 否则拆分  
 3. 有没有在 lambda 里写超过 3 行业务？→ 抽方法引用或私有方法  
+
+<a id="MapStruct"></a>
 
 ## MapStruct
 
@@ -155,7 +165,7 @@ public interface BizConvert {
 - 枚举展示名：`@Mapping(expression = "java(...)")` + `@Mapper(imports = {...})`
 - 多表 VO：**Mapper XML 一次查出**，不在 Service 循环拼
 
-详见 [examples.md](examples.md)、[architecture.md](architecture.md)。
+expression 示例见 [examples.md](examples.md)。分层边界见 [architecture.md](architecture.md)。
 
 ## Service 模式
 
@@ -203,9 +213,13 @@ public interface BizConvert {
 
 见 [comments.md](comments.md)（分级表、Javadoc、步骤分块）与 [method-structure.md](method-structure.md)（编排与私有方法抽取）。
 
+<a id="注解排列"></a>
+
 ## 注解排列
 
 > **版本无关**：与 JDK、Spring Boot / Cloud 代际、API 文档体系（Swagger2 / springdoc / 无文档注解）无关。适用于任意 Java 注解——Spring Web、JPA、Bean Validation、Lombok、安全、项目自定义等，**只排顺序，不规定必须用哪些注解**。
+>
+> **Why**：同一声明处注解长短交错时，短在上、长在下更易扫读；与具体框架无关的排版约定，换仓仍适用。
 
 同一声明处（类、方法、字段、参数等）挂多个注解时，**按注解整行文本从短到长**自上而下排列。
 

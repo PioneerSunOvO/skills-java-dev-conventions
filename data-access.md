@@ -4,14 +4,7 @@
 
 ## 分页
 
-| 信号 | 做法 |
-|------|------|
-| MP + **项目自定义**分页封装 | 常见：`PageInfo` + `Paging`、`PageResult`、包装 `IPage` 等——**跟邻 Controller/Service** |
-| PageHelper | `PageHelper.startPage()` + 项目分页出参 |
-| MyBatis-Plus 原生 | `Page<Entity>` + `selectPage` |
-| Spring Data JPA | `Pageable` + `Page<T>` |
-
-示例见 [examples.md#分页写法对照](examples.md#分页写法对照)。禁止全量查出后 `subList` 内存分页。
+选型权威见 [versions.md#分页三分支](versions.md#分页三分支)。写法对照见 [examples.md#分页写法对照](examples.md#分页写法对照)。**禁止**全量查出后 `subList` 内存分页。
 
 ## 选型原则
 
@@ -28,7 +21,7 @@
 
 - 循环内单条查库 → 批量或 XML 一次查
 - Service 拼 SQL 字符串 → `#{}` 参数化
-- 全量 list 后内存分页 → 数据库分页
+- 全量 list 后内存分页 → 见 [versions.md#分页三分支](versions.md#分页三分支)
 
 ## Mapper XML 写法
 
@@ -150,6 +143,8 @@ public void handlePaymentNotify(PaymentNotifyDto notify) {
 2. 允许从哪些状态跳到哪些状态？
 3. 重复调用时返回什么？
 4. 并发失败 / 更新条数为 0 时怎么处理？
+
+<a id="金额与时间"></a>
 
 ## 金额与时间
 

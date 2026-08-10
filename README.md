@@ -75,10 +75,10 @@ Superpowers 流程 skill（若启用）→ 项目 skill → java-dev-conventions
 ### 新项目接入清单
 
 1. 复制或软链 `java-dev-conventions` 到全局或项目 `.cursor/skills/`
-2. 在仓库写 `CLAUDE.md`：JDK、Spring Boot/Cloud、持久层、禁改模块
-3. （可选）新增 `<project>-quickref/SKILL.md`：API 包装类、分页类、包名、业务词
-4. （可选）`.cursor/rules/` 声明默认启用哪些 skill
-5. 首次进入仓库让 Agent 读 `versions.md` 或直接使用 `CLAUDE.md` 画像捷径
+2. 在仓库写 `CLAUDE.md`：JDK、Spring Boot/Cloud、持久层、禁改模块（可选但推荐）
+3. **创建项目 quickref**（业务仓推荐、非可选）：`<project>-quickref/SKILL.md` — 步骤、模板、缺失时 Agent 行为见 **[project-quickref.md](project-quickref.md)**
+4. （推荐）`.cursor/rules/` 声明 quickref 与 java-dev-conventions 的加载顺序
+5. 首次改 Java 前：有 quickref 则先读它；**没有则 Agent 应提示用户创建**（见 project-quickref.md），勿硬套其他仓库类名
 
 ### 最小模板目录树
 
@@ -121,29 +121,29 @@ alwaysApply: true
 
 将 `<project>-quickref` 换成实际 skill 名；**不要把某一仓库的类名写进 `java-dev-conventions` 正文**。
 
+完整创建指南（探测路径、最小模板、Cursor rule、缺失时提示用户）：**[project-quickref.md](project-quickref.md)**。
+
 ## 文件结构
 
 ```
-SKILL.md                  # 入口
+SKILL.md                  # 入口：路由 + 硬门禁
 versions.md               # 环境探测：Java、SB2/3、Cloud、持久层、老旧依赖
 architecture.md           # 分层、R<T> 响应包装约定、DTO/VO
 incremental-change.md     # 存量大文件增量修改
-coding-patterns.md        # 判空、Stream、多工具库并存
-comments.md               # 注释权威
-comments-examples.md      # 占位词、套话、正反例
+coding-patterns.md        # 判空、Stream、多工具库并存、MapStruct 权威
+comments.md               # 注释权威（规则）
+comments-examples.md      # 占位词/套话/形状模板/润色对照（按需）
 method-structure.md       # 步骤分块、私有方法
-data-access.md            # SQL/XML、分页、MP 动态条件、回调幂等
+data-access.md            # SQL/XML、分页引用、MP 动态条件、回调幂等
 tests-policy.md           # 测试触发条件、验证层级、手工验证退化条件
 security.md               # 鉴权、数据范围、脱敏、动态字段白名单
-quick-check.md            # 按改动类型的最小检查表
+quick-check.md            # 默认入口：按改动类型选读
 config-yml.md             # application*.yml
 pitfalls.md               # 陷阱与完整交付清单
-examples.md               # 范本（按需）
-examples-comments.md      # 注释润色前后对照
+examples.md               # 版本/语法/分页/MapStruct 对照（按需）
 examples-method-structure.md # 步骤分块完整范本
-examples-controller.md    # Web / Controller 中性示例
-examples-data-access.md   # 持久层与分页中性示例
 migration.md              # 升级与迁移
+project-quickref.md       # 项目 quickref 创建；未发现时提示用户
 ```
 
 ## 维护与更新

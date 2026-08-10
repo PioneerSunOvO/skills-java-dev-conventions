@@ -20,7 +20,7 @@
 
 包名、子域划分以仓库为准；新增类放进与邻类相同的包，不另起一套结构。
 
-## 新增类注释（硬性门禁）
+## 新增类注释（硬门禁）
 
 每新增 Java 类必须含创建人、创建时间、类职责。**模板与字段规则**见 [comments.md](comments.md)。
 
@@ -28,7 +28,7 @@
 
 ## Controller
 
-> 示例中 **`R<T>`** 表示项目统一 HTTP 响应包装（如 `ApiResult`、`R`、`CommonResult`、`Result` 等），**跟邻 Controller** 的实际类名与静态方法；不要因为示例而新建一套响应包装。
+> 示例中 **`R<T>`** 表示项目统一 HTTP 响应包装，**类名与静态方法跟邻 Controller**；不要因为示例新建一套响应类型。
 
 ```java
 // 好：薄控制器
@@ -51,7 +51,7 @@ public R<Boolean> add(@RequestBody BizEntity entity) {
 
 - **门禁**：入参用 Param / DTO，**禁止 Entity 作 `@RequestBody`**；出参用 VO，**禁止直接返回 Entity**
 - 出参用项目统一包装 + VO（见上 `R<T>` 说明）
-- 分页：`getPageList(@Validated @RequestBody XxxPageParam param)`（路径、HTTP 方法、入参类型以邻 Controller 为准）
+- 分页：路径与方法名**以邻 Controller 为准**（示意 `POST /page`）；入参多为 `XxxPageParam`
 - 不在 Controller 里 `try-catch` 吞异常（交给全局异常处理）
 - OpenAPI 注解跟项目探测结果：有 `springfox`/`knife4j` 用 Swagger2（`@ApiOperation`）；有 `springdoc-openapi` 用 `@Operation`；**不混用**
 
@@ -75,11 +75,8 @@ public R<Boolean> add(@RequestBody BizEntity entity) {
 转换：
 
 - 简单边界：`XxxConvert.INSTANCE.dtoToEntity(dto)`（MapStruct）
-- 列表/树形映射：`@Named` + `@BeanMapping(qualifiedByName = ...)` 区分转换目标
-- 枚举展示名：`@Mapping(expression = "java(...)")` + `@Mapper(imports = {...})`
 - 多表展示：**XML 查 VO**，不在 Service 里 `for` 循环补名称
-
-MapStruct 进阶示例见 [coding-patterns.md](coding-patterns.md)。
+- 列表映射、枚举展示名、`@Named` 等进阶写法 → **权威** [coding-patterns.md#MapStruct](coding-patterns.md#MapStruct)
 
 ## 命名（与项目对齐）
 
@@ -97,30 +94,32 @@ MapStruct 进阶示例见 [coding-patterns.md](coding-patterns.md)。
 
 ## 接口路径（常见约定）
 
-| 操作 | 路径示例 |
-|------|----------|
+| 操作 | 路径示例（示意，**以邻 Controller 为准**） |
+|------|------|
 | 新增 | `POST /add` |
 | 更新 | `POST /update` |
 | 删除 | `POST /delete/{id}` |
 | 详情 | `GET /info/{id}` |
-| 分页 | `POST /getPageList` |
+| 分页 | `POST /page` |
 | 列表 | `GET /list` 或 `POST /list` |
 
 以项目已有 Controller 为准，不混用两套风格。
 
 ## 审计字段
 
-若 `BaseEntity` 不含 `opUserid` / `opDate` 等：
+字段名、类型、setter **一律跟邻 Entity**（不同项目可能是 `createBy`/`updateTime`、`opUserId`/`opDate` 等）：
 
-- 项目有 **MetaObjectHandler** 自动填充 → 不手写重复赋值
-- 无自动填充 → 在 Service 里按 Entity 字段手动赋值：
+- 项目有 **MetaObjectHandler**（或等价自动填充）→ 不手写重复赋值
+- 无自动填充 → 在 Service 里按 Entity 实际字段赋值：
 
 ```java
-// 项目用户上下文工具（类名跟仓库，如 LoginUtil、SecurityUtils、UserContext）
-entity.setOpUserid(CurrentUser.getUserId()).setOpDate(new Date());
+// 登录人工具与字段名均跟邻代码（以下为占位示意）
+entity.setCreateBy(CurrentUser.getUserId()).setUpdateTime(new Date());
 ```
 
 ## 测试（边界）
+
+**何时必须补验证、优先补哪一层** → [tests-policy.md](tests-policy.md)。
 
 - 单元测试：Mock Service 依赖，不启完整容器（除非项目惯例即 `@SpringBootTest`）
 - 接口测试：`MockMvc` / `WebTestClient` 跟项目现有测试基类

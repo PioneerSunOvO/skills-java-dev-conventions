@@ -2,6 +2,9 @@
 
 配合 [versions.md](versions.md) 使用。示例中的类名、响应包装均为占位，实际以项目为准。
 
+注释润色前后对照 → [comments-rewrites.md](comments-rewrites.md)  
+步骤分块完整范本 → [examples-method-structure.md](examples-method-structure.md)
+
 ## 版本探测示例
 
 **给定 pom 片段：**
@@ -144,6 +147,9 @@ import jakarta.validation.constraints.NotNull;
 
 ---
 
+<a id="分页"></a>
+<a id="分页写法对照"></a>
+
 ## 分页写法对照
 
 ### PageHelper
@@ -151,7 +157,9 @@ import jakarta.validation.constraints.NotNull;
 ```java
 PageHelper.startPage(param.getPageIndex(), param.getPageSize());
 List<OrderVo> list = orderMapper.selectOrderVoList(param);
-return new Paging<>(new PageInfo<>(list));
+// com.github.pagehelper.PageInfo；再包一层时用项目统一分页出参
+PageInfo<OrderVo> pageInfo = new PageInfo<>(list);
+return R.ok(pageInfo);
 ```
 
 ### MyBatis-Plus
@@ -159,7 +167,8 @@ return new Paging<>(new PageInfo<>(list));
 ```java
 Page<Order> page = new Page<>(param.getPageIndex(), param.getPageSize());
 IPage<Order> result = orderMapper.selectPage(page, wrapper);
-return new Paging<>(result);
+// 出参封装类名跟邻代码（示意 PageResult）
+return R.ok(new PageResult<>(result));
 ```
 
 ### Spring Data JPA
@@ -167,256 +176,10 @@ return new Paging<>(result);
 ```java
 Pageable pageable = PageRequest.of(param.getPageIndex() - 1, param.getPageSize());
 Page<Order> result = orderRepository.findAll(spec, pageable);
+return R.ok(result);
 ```
 
-实际出参封装类名以项目为准（`Paging`、`PageResult` 等）。
-
----
-
-## 注释润色（AI → 自然中文）
-
-完整分级表与自检口令见 [comments.md](comments.md)。
-
-### 润色 1：空洞类注释
-
-**前：**
-
-```java
-/**
- * 该类用于处理订单相关的业务逻辑。
- * 主要功能包括：订单查询、订单更新、订单删除。
- */
-```
-
-**后：**
-
-```java
-/**
- * @description: 订单衍生数据服务实现；汇总口径与统计 SQL 一致
- * @author: 开发者
- * @since: 2026-06-09 10:00
- */
-```
-
-### 润色 2：机翻方法注释
-
-**前：**
-
-```java
-/**
- * 值得注意的是，本方法主要用于处理支付回调。
- * 此外会对支付流水进行校验，确保数据一致性。
- */
-```
-
-**后：**
-
-```java
-/**
- * 支付回调处理；同一 outTradeNo 重复通知时幂等返回，不重复更新订单状态。
- */
-```
-
-### 润色 3：复述代码的行注释
-
-**前：**
-
-```java
-// 查询未删除的
-List<Order> list = mapper.selectList(wrapper);
-```
-
-**后：**
-
-```java
-// 列表只展示未删除记录，与前台「有效数据」口径一致
-List<Order> list = mapper.selectList(wrapper);
-```
-
-### 润色 4：配置字段用英文字段名
-
-**前：**
-
-```java
-/** companyName 短语前缀匹配权重 */
-private float companyNamePhrasePrefix = 10.0f;
-```
-
-**后：**
-
-```java
-/** 公司名称短语前缀匹配权重，数值越大排序越靠前 */
-private float companyNamePhrasePrefix = 10.0f;
-```
-
-### 润色 5：Controller 不必 Javadoc 与 Swagger 双写
-
-**前（冗余）：**
-
-```java
-/**
- * 按关键词检索订单补全建议。
- * @param param 入参
- * @return 建议列表
- */
-@ApiOperation(value = "订单补全", notes = "按关键词返回建议列表")
-@GetMapping("/suggest")
-public ApiResult<List<OrderVo>> suggest(@Valid OrderSuggestParam param) {
-    return ApiResult.ok(orderSuggestService.suggest(param));
-}
-```
-
-**后（二选一，Swagger 已够用时保留 Swagger）：**
-
-```java
-@ApiOperation(value = "订单补全", notes = "按关键词返回建议列表；无匹配时 data 为空列表")
-@GetMapping("/suggest")
-public ApiResult<List<OrderVo>> suggest(@Valid OrderSuggestParam param) {
-    return ApiResult.ok(orderSuggestService.suggest(param));
-}
-```
-
-### 润色 6：报表编排注释（类 / 方法 / 步骤）
-
-**类注释：**
-
-```java
-// 前：该类用于处理统计报表相关的业务逻辑。
-// 后：@description: 统计分类报表服务；自办读征订汇总、邮局读发行计划，区域过滤与订单列表 getPageList 一致。
-//     查询与导出均固定 pid 下一级；数量在业务层按 catId+ISBN 归并，itmId 与 ISBN 在业务层换算。
-```
-
-**方法 Javadoc：**
-
-```java
-// 前：该方法用于组装报表节点数据。
-// 后：组装报表节点（固定仅 pid 下一级）。
-//     自办、邮局数量在业务层按 catId+ISBN 合并；itmId 与 ISBN 的对应关系也在业务层处理。
-```
-
-**步骤注释：**
-
-```java
-// 前：// 解析
-// 后：// 确定自办订单区域条件：pid=0 用 catId IN，pid≠0 用父级 fullid 匹配 catidArray
-```
-
----
-
-## 步骤分块示例（切面方法）
-
-```java
-/**
- * 业务成功后解析上下文，按配置执行同步或清理。
- *
- * @param joinPoint 切点
- * @param marker    业务标记注解
- */
-@AfterReturning("@annotation(marker)")
-public void afterSuccess(JoinPoint joinPoint, BusinessMarker marker) {
-    // 解析条件表达式，不通过则不执行
-    if (!evaluateCondition(marker.condition(), joinPoint)) {
-        return;
-    }
-
-    // 解析业务主键列表
-    List<Long> ids = resolveIds(marker, joinPoint);
-    if (ids.isEmpty()) {
-        return;
-    }
-
-    // 按动作类型执行同步或删除
-    for (Long id : ids) {
-        if (Objects.isNull(id)) {
-            continue;
-        }
-        if (ActionType.DELETE == marker.action()) {
-            syncService.deleteById(id);
-        } else {
-            syncService.rebuildById(id);
-        }
-    }
-}
-```
-
-要点：Javadoc 概括全流程；体内每步一行总注释；块间空一行；总注释含边界。
-
----
-
-## 步骤分块示例（Service 方法）
-
-```java
-/**
- * 重算并落库衍生数据。
- * 主记录不存在或明细为空时清空；有数据则先删后插。
- *
- * @param id 业务主键
- */
-public void rebuildById(Long id) {
-    // 主键为空直接返回
-    if (Objects.isNull(id)) {
-        return;
-    }
-
-    // 加载主记录与明细
-    Order order = orderService.getById(id);
-    List<OrderDetail> details = detailService.listByOrderId(id);
-
-    // 无记录或无明细时清空衍生数据
-    if (Objects.isNull(order) || CollectionUtils.isEmpty(details)) {
-        deleteById(id);
-        return;
-    }
-
-    // 按业务规则计算衍生行
-    List<SummaryRow> rows = buildSummaryRows(order, details);
-
-    // 先删后插，保证与源数据一致
-    deleteById(id);
-    if (CollectionUtils.isNotEmpty(rows)) {
-        this.saveBatch(rows);
-    }
-}
-```
-
----
-
-## 步骤分块示例（多数据源查询）
-
-```java
-/**
- * 查询复合列表，含当期数据、历史关联及统计数量。
- *
- * @param param 含 year、分类筛选条件
- * @return 按分类组装后的列表
- */
-public List<CatalogVo> getList(QueryParam param) {
-    // 解析查询范围
-    Integer year = param.getYear();
-    List<Long> categoryIds = resolveCategoryIds(param);
-
-    // 加载当期主数据
-    List<ItemVo> currentItems = baseMapper.selectItemsByYear(year, categoryIds);
-
-    // 加载跨期关联数据
-    List<ItemVo> allItems = baseMapper.selectItemsByYears(year, year - 1);
-
-    // 历史记录映射：按当期与主数据的交集键关联
-    Map<Long, ItemVo> historyItemMap = buildHistoryMap(allItems, currentItems, year);
-
-    // 查询历史统计数量
-    Map<Long, Map<Long, Integer>> historyQtyMap =
-            loadHistoryQuantities(year - 1, categoryIds, historyItemMap.keySet());
-
-    // 按分类组装返回列表
-    for (CatalogVo catalog : catalogList) {
-        assembleCatalog(catalog, currentItems, historyItemMap, historyQtyMap);
-    }
-    return catalogList;
-}
-```
-
-分块规则见 [comments.md#步骤分块](comments.md#步骤分块)；并行查询见 [comments.md#多路并行查询示例](comments.md#多路并行查询示例)。
+`R` / `PageResult` 均为占位，以项目为准。分页选型权威见 [versions.md#分页三分支](versions.md#分页三分支)。
 
 ---
 
@@ -441,4 +204,4 @@ List<ReportRowVo> rows = details.stream()
         .collect(Collectors.toList());
 ```
 
-更多模式见 [coding-patterns.md](coding-patterns.md)。
+规则与更多模式见 [coding-patterns.md#MapStruct](coding-patterns.md#MapStruct)。

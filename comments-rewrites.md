@@ -1,6 +1,6 @@
-# 注释润色对照示例
+# 注释润色对照
 
-配合 [comments.md](comments.md) 与 [comments-examples.md](comments-examples.md) 使用。这里专放“前后改写”示例，方便在审代码时快速比对。
+配合 [comments.md](comments.md) 与 [comments-examples.md](comments-examples.md) 使用。专放前后改写示例；小改不必打开。
 
 ## 润色 1：空洞类注释
 
@@ -168,3 +168,4 @@ public R<List<BizVo>> suggest(@Valid SuggestParam param) {
 // 父级汇总合并列金额
 // uuid写入Redis，保存时凭uuid读取
 ```
+
