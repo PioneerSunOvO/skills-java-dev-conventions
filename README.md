@@ -12,6 +12,8 @@
 - **测试门禁**：`tests-policy.md` 规定何时必须补验证、优先补哪层
 - **安全门禁**：`security.md` 约束鉴权、数据范围、脱敏、动态字段白名单
 - **速查入口**：`quick-check.md` 提供按改动类型的 30 秒自检
+- **模块落点 / 工程骨架**：`architecture.md`（含 **多模块工程骨架**：Starter / SPI / 改底座门槛）
+- **横切高阶**：`framework-patterns.md`（Context+Utils、注解+Aspect+策略、Handler、CAS 封装、下沉门槛）
 - **YAML**：`config-yml.md` 段分割符与配置项中文注释
 - **交付自检**：`pitfalls.md` 完整清单
 - **迁移升级**：`migration.md` 处理 Boot / Cloud / `javax`→`jakarta`
@@ -65,7 +67,7 @@ Superpowers 流程 skill（若启用）→ 项目 skill → java-dev-conventions
 | Spring Boot 2.x / 3.x | **支持** | 默认主场景 |
 | Spring Cloud | **支持** | Feign / Gateway / 注册中心 / 配置中心 / 熔断按画像分支处理 |
 | MyBatis / MyBatis-Plus / JPA | **支持** | `versions.md` + `data-access.md` 分支 |
-| Swagger2 / springdoc | **支持** | 不混用，跟项目探测结果 |
+| Swagger2 / springdoc | **支持** | 不混用，跟项目探测结果；**接口 Param/Vo 字段必须有文档注解** |
 | Jackson / Fastjson / Gson | **支持** | 跟项目现有主序列化体系 |
 | Hutool / Guava / Commons | **支持** | 跟邻代码，不引入第二套重叠依赖 |
 | Dubbo | **不直接覆盖** | 以项目规则与邻代码为准 |
@@ -128,7 +130,7 @@ alwaysApply: true
 ```
 SKILL.md                  # 入口：路由 + 硬门禁
 versions.md               # 环境探测：Java、SB2/3、Cloud、持久层、老旧依赖
-architecture.md           # 分层、R<T> 响应包装约定、DTO/VO
+architecture.md           # 分层、DTO/VO、模块落点、多模块工程骨架、契约、Swagger、错误码
 incremental-change.md     # 存量大文件增量修改
 coding-patterns.md        # 判空、Stream、多工具库并存、MapStruct 权威
 comments.md               # 注释权威（规则）

@@ -129,7 +129,7 @@
 │  ├─ rules/
 │  │  └─ java-skills-required.mdc     # 可选，推荐
 │  └─ skills/
-│     ├─ java-dev-conventions/        # 通用（软链或复制）
+│     ├─ java-dev-conventions/        # 通用（软链或复制）；含 framework-patterns.md 等
 │     └─ <project>-quickref/
 │        └─ SKILL.md                  # 项目专属，通常单文件即可
 ```
@@ -144,8 +144,10 @@
 |------|------|
 | 适用范围 | 链到 `java-dev-conventions`；声明仅本仓库 |
 | 技术栈 | 版本锁定表（禁止 Agent 擅自升级） |
-| 模块与禁改 | 哪些目录可改、哪些非必要不改 |
+| 模块与禁改 | 哪些目录可改、哪些非必要不改；**依赖方向写原则（如 biz→对方 api），不维护易腐的完整依赖全图**；聚合父模块落到**子域**；启动壳 vs 业务落点 |
+| Framework 启用地图（可选） | 多模块仓建议补：各 starter **实装/空壳**、谁依赖、SPI 接口与实现类位置；通用原则见 java-dev-conventions `architecture.md#多模块工程骨架` |
 | 包结构与核心 API | 根包、响应类、异常、登录态、分页写法（**真实类名**） |
+| 跨边界约定 | 本仓如何保证不暴露 Entity（包级/模块依赖，**不强制**拆 `*-api`） |
 | Controller / 事务 / 注入 | 跟邻代码的硬性约定 |
 | 本仓差异 | 金额口径、幂等、权限、注释 `@author`、Git 中文 scope 等 |
 | 业务词汇 | 术语表 |
@@ -192,6 +194,16 @@ description: >-
 | `backend/` | 业务主模块 |
 | `legacy/` | **非必要不改** |
 
+## Framework 启用地图（多模块仓建议）
+
+> 通用原则见 java-dev-conventions → `architecture.md#多模块工程骨架`。本表只填本仓真实 artifact。
+
+| 模块 | 状态 | 谁依赖 | SPI / 备注 |
+|------|------|--------|------------|
+| `*-common` | 实装 | 各模块 | （填） |
+| `*-starter-web` | 实装 | `*-biz` | （填） |
+| `*-starter-xxx` | 空壳/实装 | （按需） | 有 SPI 则写接口与实现类全名 |
+
 ## 包结构与核心 API
 
 - 根包：`com.example.app`
@@ -221,6 +233,7 @@ description: >-
 2. 是否误改禁改模块？
 3. 金额/状态/幂等是否按本仓口径？
 4. 注释与 Git scope 是否符合本仓约定？
+5. 新建/扩展 Starter 是否查过「Framework 启用地图」且底座未依赖业务域？
 
 其他 Java 项目只复制 `java-dev-conventions/`，**不要复制本 skill**。
 ```

@@ -1,15 +1,12 @@
 ---
 name: java-dev-conventions
 description: >-
-  编写或修改 Java/Spring Boot 后端（含 MyBatis/MP/JPA）及配套 Mapper XML、
-  Spring 配置（yml/yaml/properties）时使用；审查分层、注释、N+1、Entity 穿透时使用。
-  触发词：Java, Spring Boot, .java, Mapper.xml, ServiceImpl, Java规范, 分层,
-  中文注释, 机翻, AI味, 占位词, 套话, deslop, Git 提交, MyBatis, MapStruct,
-  javax, jakarta, N+1, Entity穿透, 幂等, BigDecimal, Spring Boot 2→3 迁移。
-  若仓库存在项目专属 skill（如 *-quickref），先加载项目 skill 再加载本 skill。
-  未发现 *-quickref 且将改 Java/XML/配置时，须提示用户按 project-quickref.md 创建，默认暂停业务改动。
-  不适用：非 Spring 后端（如纯 Android）；仅项目 API 名/业务词（用项目 skill）；
-  不改代码的纯概念问答；与本规范无关的纯文档 commit 说明。
+  Java/Spring Boot 后端、MyBatis/MP/JPA、Mapper XML、Spring 配置编写与审查。
+  触发：Java规范, 分层, N+1, Entity穿透, Lombok, MapStruct, Optional, Stream,
+  判空, 工具类, 中文注释, Git提交, javax/jakarta, Swagger, OpenAPI, Schema,
+  ApiModelProperty, ApiOperation, Knife4j, 接口入参出参文档,
+  跨模块契约, 模块落点, 多模块工程骨架, Starter, SPI, api包, Facade, 错误码, ErrorCode, 业务异常混用。
+  有 *-quickref 时先读项目 skill；无 quickref 且改代码时提示创建。
 ---
 
 # Java 开发约束
@@ -78,11 +75,11 @@ description: >-
 |----|------|
 | 默认栈 | Java 8–21、SB 2.x/3.x、可选 Cloud、MyBatis / MP / JPA |
 | 不假设 | 包名、基类、统一响应类名、依赖版本 → 以**当前仓库**为准 |
-| 改动范围 | 只动任务相关业务模块；不动框架/安全底层与敏感配置（除非用户明确要求） |
+| 改动范围 | 只动任务相关业务模块；不动框架/安全底层与敏感配置（除非用户明确要求，或项目 quickref 允许） |
 | 不直接覆盖 | Dubbo、Vert.x、Quarkus、Micronaut、纯 WebFlux → 跟邻代码与项目规则 |
 
 **版本无关**（换仓仍有效）：分层、注解从短到长、长行换行、步骤分块、注释分级、禁 N+1、禁 Entity 穿透。  
-**版本相关**：先完成环境画像再选 API（见 [versions.md](versions.md)）。不得把某仓专属注解/基类/响应类写进本 skill 示例。
+**版本相关**：先完成环境画像再选 API（见 [versions.md](versions.md)）。**不得**把某仓专属注解/基类/响应类/业务实体名写进本 skill 示例；示例一律用 `Biz*` / `Xxx*` 占位，真实类名见项目 quickref。
 
 ### versions 捷径
 
@@ -102,12 +99,12 @@ description: >-
 | Controller | 校验、调 Service、统一响应 | 业务判断、直调 Mapper、拼复杂 VO |
 | Service / Impl | 编排、事务、领域规则 | 解析 HTTP、拼 SQL；Impl 不越层碰 Web 上下文（除非项目已有封装） |
 | Mapper / Repository | 数据读写 | 业务分支、事务注解 |
-| Convert | 简单字段映射 | 业务 if/else |
+| Convert | 字段映射、无 I/O 组装 | 状态机、金额规则、查库 |
 | Entity | 表映射 | 作 API 入参/出参 |
 | DTO / Param | 写入参 | 仅当出参 |
 | VO | 读出参 | 写库对象 |
 
-细则：[architecture.md](architecture.md)。
+细则：[architecture.md](architecture.md)。多模块工程骨架 / Starter / SPI：[architecture.md#多模块工程骨架](architecture.md#多模块工程骨架)。
 
 ### 新增类三要素
 
@@ -118,19 +115,26 @@ description: >-
 - 多表、聚合、动态展示：**一次查询返 VO**；禁 Service 循环查库拼 Map  
 - 分页走项目封装；禁全量查再内存截取  
 - 禁 `for` / `stream` 内单条查库或远程调用  
-- 回调 / MQ / 补偿 → [data-access.md#外部回调与幂等](data-access.md#外部回调与幂等)  
+- 回调 / MQ / 补偿 → [data-access.md#外部回调与幂等](data-access.md#外部回调与幂等)；CAS 须检查影响行数  
+- 幂等 ≠ 分布式锁 → [data-access.md#幂等与分布式锁](data-access.md#幂等与分布式锁)  
 - 金额 → [data-access.md#金额与时间](data-access.md#金额与时间)
 
 ### 编码底线（新写片段）
 
-细则见 [coding-patterns.md](coding-patterns.md)。摘要：
+**权威细则**：[coding-patterns.md](coding-patterns.md)。此处仅列硬门禁摘要（不展开）：
 
-- 判空：禁手写 `== null` 判对象；集合用 `CollectionUtils`；字符串用 `StringUtils.isBlank()`；import **跟邻文件**；**不顺手改旧代码判空**  
-- Stream：可读优先；禁流内 I/O；链 ≤ 4 步；不用 `peek` 写业务  
-- 异常：业务失败抛项目等价 `BusinessException`；禁空 catch / catch 后 `return null`；日志末参带 `Throwable`  
-- 写操作：`@Transactional(rollbackFor = Exception.class)`（或项目等价）；注意自调用失效  
-- 注入 / 校验包 / 文档注解：跟画像与邻代码，不引入项目没有的风格  
-- 注解从短到长；长行固定缩进续行（见 coding-patterns）
+| 主题 | 一句 |
+|------|------|
+| 判空/比较/集合 | 优先工具类；禁 `== null`、裸 `.equals` → [#判空与工具类](coding-patterns.md#判空与工具类) |
+| Optional | 取值/抛/默认；禁 DTO 字段 → [#optional](coding-patterns.md#optional) |
+| Lombok | 数据类禁手写 accessor → [#lombok](coding-patterns.md#lombok) |
+| MapStruct | 禁 BeanUtils；可静态查字段引用 → [#MapStruct](coding-patterns.md#MapStruct) |
+| Stream | 优先简化；禁流内 I/O；链 ≤ 4 → [#stream](coding-patterns.md#stream-流式处理) |
+| 耗时 | `StopWatch`；禁手算毫秒 → [#stopwatch](coding-patterns.md#耗时日志-stopwatch) |
+| 异常/事务 | 业务异常跟邻；`rollbackFor=Exception.class`；**错误码与失败场景一一对应，禁混用邻近码** → [architecture.md#业务错误码](architecture.md#业务错误码) |
+| 注入/注解 | 跟邻代码；注解从短到长 |
+
+跨模块契约、模块落点、**多模块工程骨架（Starter / SPI）**、业务错误码分段、统一响应贯通 → [architecture.md](architecture.md)（强约束）。富枚举与入参校验 → [coding-patterns.md#富枚举与入参校验](coding-patterns.md#富枚举与入参校验)。
 
 ### 测试
 
@@ -142,7 +146,7 @@ description: >-
 
 ### 中文注释
 
-**强约束**（类三要素见上「硬门禁」）；权威在 [comments.md](comments.md)；占位词/形状/润色按需见 [comments-examples.md](comments-examples.md)。只写业务口径；禁复述代码、AI 套话、机械全覆盖 Javadoc。
+**强约束**（类三要素见上「硬门禁」）；权威在 [comments.md](comments.md)；占位词/形状/润色按需见 [comments-examples.md](comments-examples.md)。只写业务口径；禁复述代码、AI 套话、机械全覆盖 Javadoc。语气：通俗书面，禁口语白话 → [comments.md#语气与排版](comments.md#语气与排版)。
 
 <a id="git-提交说明"></a>
 
@@ -155,8 +159,8 @@ description: >-
 | 等级 | 内容 | 说明 |
 |------|------|------|
 | **硬门禁** | Entity 不穿透、无 N+1、事务/幂等、敏感配置不乱动、类三要素 | 零容忍：不满足即缺陷 |
-| **强约束** | 注释分级、步骤分块、判空与日志、对象边界、YAML 段分割符 | 默认遵守；有稳定邻风先跟邻 |
-| **风格建议** | 注解排序、长行换行、YAML `#` 视觉对齐 | 无收益不对旧代码大面积格式化 |
+| **强约束** | 注释分级、步骤分块、判空/比较/集合工具类、Optional、Lombok、MapStruct（禁 BeanUtils）、Stream、对象边界、YAML 段分割符、**模块落点与依赖方向**、**多模块工程骨架（仅已拆底座三层；改底座须授权；否则省略）**、跨模块契约（包级或独立契约模块；形态 B 禁依赖对方实现模块）、**下沉门槛（≥2 处同构横切才抽共享）**、**有 Context 时禁裸改 ThreadLocal**、错误码分段、**错误码与失败场景一一对应（禁混用）**、响应↔异常贯通、富枚举校验、幂等≠锁、**接口入出参字段文档注解（跟项目 Swagger2/springdoc 栈）** | 默认遵守；有稳定邻风先跟邻 |
+| **风格建议** | 注解排序、长行换行、YAML `#` 视觉对齐、生命周期 Handler/有序计算器、多供应商模板方法、**是否采用** Context Utils / 声明式横切 / CAS Mapper 封装 / package-info 全景等形态（见 [framework-patterns.md](framework-patterns.md)；一旦采用则其中标明的强约束须遵守） | 无收益不对旧代码大面积格式化 |
 
 正文用词与上表对齐：勿把「风格建议」写成硬门禁；勿把硬门禁降成「最好遵守」。
 
@@ -166,12 +170,13 @@ description: >-
 |------|--------|
 | [quick-check.md](quick-check.md) | **默认入口**：按改动类型选 1～2 个细则 |
 | [versions.md](versions.md) | 画像不明 / 跨仓首次 |
-| [architecture.md](architecture.md) | 分层、URL、DTO/VO |
-| [data-access.md](data-access.md) | SQL/XML、分页、幂等、金额 |
+| [architecture.md](architecture.md) | 分层、URL、DTO/VO、**Swagger/OpenAPI（含入出参字段文档）**、**模块落点**、**多模块工程骨架（Starter / SPI）**、**跨模块契约（含形态 B：禁依赖实现模块）**、错误码、响应贯通、扩展点 |
+| [framework-patterns.md](framework-patterns.md) | **横切高阶**：Context+Utils、注解+Aspect+策略、Handler、CAS 封装、package-info |
+| [data-access.md](data-access.md) | SQL/XML、分页、幂等、**CAS、幂等≠锁**、金额 |
 | [incremental-change.md](incremental-change.md) | 500+ 行大类局部改 |
-| [comments.md](comments.md) / [comments-examples.md](comments-examples.md) | 注释规则；占位词/形状/润色（按需） |
-| [method-structure.md](method-structure.md) | 长方法编排 |
-| [coding-patterns.md](coding-patterns.md) | 判空、Stream、注解、MapStruct |
+| [comments.md](comments.md) / [comments-examples.md](comments-examples.md) | 注释规则（含**为什么优先**、**总结性+解释性两层**、**设计决策问答**）；占位词/形状/润色（按需） |
+| [method-structure.md](method-structure.md) | 长方法编排、**编号步骤**、**扩展点抽取** |
+| [coding-patterns.md](coding-patterns.md) | 判空、比较、工具类、Optional、Lombok、Stream、MapStruct、**富枚举**、**多供应商模板**、StopWatch |
 | [tests-policy.md](tests-policy.md) | 行为变更、bug、回调/金额 |
 | [security.md](security.md) | 鉴权、脱敏、排序白名单 |
 | [config-yml.md](config-yml.md) | `application*.yml` |
@@ -183,4 +188,4 @@ description: >-
 
 ## 跨项目复用
 
-复制本目录到项目 `.cursor/skills/` 或全局 `~/.cursor/skills/`。业务画像、模块禁改、响应类名放各仓 **项目 quickref**（推荐）或 `CLAUDE.md`，不要写进本 skill 正文示例。创建步骤 → [project-quickref.md](project-quickref.md)。
+复制本目录到项目 `.cursor/skills/` 或全局 `~/.cursor/skills/`。**正文与示例一律保持跨项目通用**（占位类名 `Biz*` / `Xxx*`，不写某一仓库业务实体）；业务画像、模块禁改、响应类名、StopWatch 封装等放各仓 **项目 quickref**（推荐）或 `CLAUDE.md`。创建步骤 → [project-quickref.md](project-quickref.md)。

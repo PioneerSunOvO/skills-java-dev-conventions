@@ -7,7 +7,7 @@
 | 项 | 要求 |
 |----|------|
 | 鉴权位置 | 跟项目既有入口：注解、切面、过滤器、Controller 前置校验或统一组件 |
-| 数据范围 | “只能看自己的”“只能改本租户”的规则，Service 仍要复核，不只相信前端传入的 userId / tenantId |
+| 数据范围 | “只能看自己的”“只能改本租户”的规则，Service 仍要复核，不只相信前端传入的 userId / tenantId。声明式数据权限 / SPI 落点 → [architecture.md#多模块工程骨架](architecture.md#多模块工程骨架)；ThreadLocal 切换 → [framework-patterns.md#上下文作用域](framework-patterns.md#上下文作用域-ttltl--utils) |
 | 对象边界 | API 入参仍用 DTO / Param，不让 Entity 直通写库，防 Mass Assignment |
 | 失败口径 | 未登录、无权限、越权访问的异常 / 错误码跟项目现有体系 |
 
@@ -63,7 +63,8 @@
 
 - 新增对外开放接口且涉及鉴权模型变化
 - 新增租户、组织、角色、菜单、数据权限模型
-- 要改统一网关、过滤器、登录态、Token 刷新策略
+- 要改统一网关、过滤器、登录态、Token 刷新策略（属安全底层，须用户明确要求）
 - 要升级安全框架、加解密方式、签名协议
+- 新建 / 大改底座 `*-spring-boot-starter-security` 或鉴权相关 AutoConfiguration（同「改底座门槛」）
 
 此类任务先按项目流程走 `brainstorming` / `writing-plans`。

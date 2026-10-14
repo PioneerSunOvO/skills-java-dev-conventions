@@ -65,7 +65,7 @@ Wrappers.lambdaQuery(BizEntity.class)
 
 ### 动态条件（推荐）
 
-入参字段可能为空时，用 **条件参数** 形式，避免 `if` 拼一串 `wrapper`：
+入参字段可能为空时，用 **条件参数** 形式（MP `wrapper.eq(condition, column, val)` 等），避免 `if` 拼一串 `wrapper`：
 
 ```java
 Wrappers.lambdaQuery(Order.class)
@@ -82,6 +82,8 @@ Wrappers.lambdaQuery(Order.class)
 | 判空工具 | 跟邻文件 import（`Objects` / `CollectionUtils` / `StringUtils`），见 [coding-patterns.md#多工具库并存](coding-patterns.md#多工具库并存) |
 | 禁止 | 在 `stream` / `forEach` 里按 id 循环 `selectById`（N+1） |
 | XML 等价 | 复杂动态 SQL 仍优先 Mapper XML `<if>` / `<where>` |
+| **勿自造** | MP 已支持条件参数时，**禁止**仅为消噪再封装一套 `xxxIfPresent`；项目**已有** QueryWrapper 扩展（`*IfPresent` 等方法）且邻代码在用 → **跟邻**，不新引入第三套 |
+| **跟邻优先于教条** | 画像/quickref 写明「用项目 Wrapper 扩展」时按封装写；无封装时用 MP 原生 `eq(condition, column, val)` |
 
 ## 事务与一致性
 
@@ -131,11 +133,34 @@ public void handlePaymentNotify(PaymentNotifyDto notify) {
 | 模板 | 适用 | 要点 |
 |------|------|------|
 | **唯一键防重** | 有天然外部流水号 / 消息 ID | 表上唯一索引；重复插入捕获后按已处理返回 |
-| **状态条件更新** | 单据状态流转 | `update ... where id = ? and status = 待处理`；更新条数为 0 视为已被并发处理或状态不符 |
-| **先查后改 + 终态短路** | 已终态可直接返回成功 | 先判断是否终态；终态不重复扣款/记账/发消息 |
+| **状态条件更新（CAS）** | 单据状态流转 | `update ... where id = ? and status = 期望旧状态`；**必须检查影响行数**：`0` → 并发抢先或状态不符，抛业务错误码或按幂等短路（注释写清选哪种） |
+| **先查后改 + 终态短路** | 已终态可直接返回成功 | 先判断是否终态；**同一外部单号**重复回调 → 直接成功返回，不重复记账 |
 | **业务单 + 渠道流水双校验** | 支付 / 对账 / 第三方通知 | 既校验本地业务单，也校验外部流水与金额，避免串单 |
 
+```java
+// CAS 示意：方法名、Wrapper、异常类型跟邻
+int rows = orderMapper.updatePaidByIdAndStatus(id, StatusEnum.UNPAID.getStatus(), updateObj);
+if (rows == 0) {
+    throw new BizException(BizErrorCodes.ORDER_STATUS_NOT_UNPAID);
+}
+```
+
+Mapper `default` 消噪封装与回调编排示例 → [framework-patterns.md#cas-更新封装](framework-patterns.md#cas-更新封装)。
+
 **优先级**：先用项目已有模式；无先例时，优先“唯一键/条件更新”这类数据库层保护，而不是只靠内存锁。
+
+<a id="幂等与分布式锁"></a>
+
+## 幂等与分布式锁（强约束）
+
+二者目的不同，**禁止**用「成功后立刻删幂等 Key」假装分布式锁。
+
+| | 幂等（防重复提交 / 防重复消费） | 分布式锁（互斥临界区） |
+|--|-------------------------------|------------------------|
+| **目标** | 同一业务意图执行一次或可安全重放 | 同一时刻只有一个执行者进入 |
+| **Key 生命周期** | 窗口期内保留；异常时可删 Key 以便重试（跟邻注解） | 持锁期间有效，结束释放 |
+| **推荐** | 项目 `@Idempotent` / 唯一索引 / CAS | 项目 `@Lock4j` / Redisson / DB 锁跟邻 |
+| **注释** | 写清幂等键、窗口、重复时行为 | 写清锁粒度、持锁做什么 |
 
 **交付说明至少回答**：
 
@@ -143,6 +168,7 @@ public void handlePaymentNotify(PaymentNotifyDto notify) {
 2. 允许从哪些状态跳到哪些状态？
 3. 重复调用时返回什么？
 4. 并发失败 / 更新条数为 0 时怎么处理？
+5. 若同时用了锁：锁与幂等各自保护什么？
 
 <a id="金额与时间"></a>
 
@@ -167,7 +193,7 @@ public void handlePaymentNotify(PaymentNotifyDto notify) {
 ```java
 BigDecimal paidAmount = Optional.ofNullable(order.getPaidAmount()).orElse(BigDecimal.ZERO);
 if (paidAmount.compareTo(expectedAmount) != 0) {
-    throw new BusinessException("支付金额不一致");
+    throw new BizException("支付金额不一致");
 }
 
 BigDecimal ratio = amount

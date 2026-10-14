@@ -202,3 +202,102 @@ public List<CatalogVo> getList(QueryParam param) {
     return catalogList;
 }
 ```
+
+<a id="步骤分块范本-g检索客户端型"></a>
+<a id="检索客户端型标杆"></a>
+
+## 范本 G：检索 / 客户端型（总结性 + 解释性标杆）
+
+适用：搜索客户端、第三方 SDK 封装、多阶段 IO（准备资源 → 组请求/执行 → 解析回填 → 可选后处理）。  
+**要点：** 总结性步骤块间空一行；难懂参数/分支另写解释性单行；步数按实际阶段，不固定为 3。
+
+```java
+/**
+ * 按关键词补全检索，排序：相关度 → 最近更新。
+ *
+ * @param keyword 用户输入，不能为空
+ * @param limit   最多返回条数
+ * @return 命中列表，含文档与高亮片段
+ */
+public List<SuggestHit<Doc>> suggest(String keyword, int limit) throws IOException {
+    // 确保索引存在，避免 index_not_found
+    indexSupport.ensureIndex();
+
+    // 组装查询条件并执行检索（含名称字段高亮）
+    Query query = queryBuilder.build(keyword, boostProperties);
+    // 中文有序过滤会丢命中，按倍数放大拉取并封顶
+    int fetchSize = resolveFetchSize(keyword, limit);
+    SearchResponse<Doc> response = client.search(s -> s
+                    .index(indexName)
+                    .query(query)
+                    .highlight(h -> h.fields(NAME_FIELD, f -> f
+                            .preTags(PRE_TAG)
+                            .postTags(POST_TAG)
+                            // 整字段高亮，避免按片段截断名称
+                            .numberOfFragments(0)))
+                    .size(fetchSize)
+                    // 主序：相关度
+                    .sort(so -> so.score(sc -> sc.order(SortOrder.Desc)))
+                    // 次序：最近更新；无该字段沉底
+                    .sort(so -> so.field(f -> f.field("updatedAt")
+                            .order(SortOrder.Desc).missing(FieldValue.of("_last")))),
+            Doc.class);
+
+    // 解析命中结果，回填文档 id 与高亮片段
+    List<SuggestHit<Doc>> hits = new ArrayList<>();
+    for (Hit<Doc> hit : response.hits().hits()) {
+        Doc document = hit.source();
+        // source 为空的 hit 跳过
+        if (Objects.isNull(document)) {
+            continue;
+        }
+        // 文档未带 id 时用引擎 hit.id 回填
+        if (Objects.isNull(document.getId())) {
+            document.setId(hit.id());
+        }
+        hits.add(new SuggestHit<>(document, extractHighlight(hit)));
+    }
+    // 中文再做有序子序列过滤并截断到 limit
+    return filterChineseOrdered(hits, keyword, limit, Doc::getName);
+}
+```
+
+**对照自检：** 若只保留三行总结性注释、删掉块内解释性单行 → 不合格（读者仍不懂 fetchSize / fragments / missing / 回填 id / 二次过滤）。
+
+<a id="步骤分块范本-f-编号回调"></a>
+
+## 范本 F：编号步骤 + CAS 回调（推荐编排）
+
+适用：支付/渠道异步通知、状态机推进。规则见 [method-structure.md#编号步骤](method-structure.md#编号步骤)、[framework-patterns.md#cas-更新封装](framework-patterns.md#cas-更新封装)。
+
+```java
+/**
+ * 支付成功回调：校验 → 幂等短路 → CAS 推进状态 → 扩展点。
+ * 同一外部支付单号重复通知时直接返回，不重复记账。
+ */
+@Transactional(rollbackFor = Exception.class)
+public void markOrderPaid(Long orderId, Long payId) {
+    // 1.1 加载并校验订单存在
+    BizOrder order = validateOrderExists(orderId);
+    // 1.2 已支付：同支付单号则幂等返回，否则报错
+    if (!BizOrderStatusEnum.isUnpaid(order.getStatus())) {
+        if (Objects.equals(order.getPayId(), payId)) {
+            return;
+        }
+        throw new BizException(BizErrorCodes.ORDER_PAY_ID_MISMATCH);
+    }
+
+    // 2. 校验外部支付单（金额、成功态）
+    BizPayOrder payOrder = validatePayOrder(order, payId);
+
+    // 3. CAS：仅未支付可改为已支付
+    int rows = orderMapper.updateByIdAndStatus(orderId, order.getStatus(),
+            new BizOrder().setStatus(BizOrderStatusEnum.PAID.getStatus()).setPayId(payId));
+    if (rows == 0) {
+        throw new BizException(BizErrorCodes.ORDER_STATUS_NOT_UNPAID);
+    }
+
+    // 4. 生命周期扩展点
+    bizOrderHandlers.forEach(h -> h.afterPay(order));
+}
+```

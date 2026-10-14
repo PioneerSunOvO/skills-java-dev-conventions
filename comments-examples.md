@@ -5,8 +5,9 @@
 | 节 | 何时读 |
 |----|--------|
 | 占位词 / 套话 / 见到就删 | 审注释、去 AI 味 |
+| 过口语 — 见到就改 | 审注释过白话、聊天感 |
 | 形状模板 | 需要可复制的 Javadoc / 字段位置示例 |
-| 润色前后对照 | 改写空洞/机翻注释时对照 |
+| 润色前后对照 | 改写空洞/机翻/过口语注释时对照 |
 
 <a id="占位词禁用法"></a>
 
@@ -43,9 +44,12 @@
 
 | 模式 | 改法 |
 |------|------|
-| 已触发分块却无步骤块 / 块间无空行 | 补步骤注释与空行 |
-| 步骤注释只有名词；Javadoc 与首步骤块重复 | 步骤写阶段，Javadoc 写口径 |
+| 已触发分块却无步骤块 / 块间无空行 | 补总结性步骤与空行 |
+| 只有总结性步骤、难懂参数无解释性单行 | 在对应行上方补「为什么」解释性注释 |
+| 机械套固定三步 / 步骤注释只有名词 | 按实际阶段拆分；步骤写阶段意图 |
+| Javadoc 与首步骤块重复 | 步骤写阶段，Javadoc 写口径 |
 | 机翻被动、复述代码、与业务无关的技术动作 | 改主动短句或删除 |
+| 口语白话（搞/弄/整、说白了、捞出来） | 改通俗书面业务动词 → [#过口语](#过口语--见到就改) |
 | `----` 装饰线；Swagger 与 Javadoc 双写同义 | 删线；Controller 二选一 |
 | 字段注释复述英文字段名；`@param param 查询参数` | 写业务语义与字段约定 |
 
@@ -59,6 +63,24 @@
 | 值得注意的是 / 综上所述 / 旨在 / 有效地 | 删除或只留动词 |
 | 确保…的正确性 / 对数据进行处理 | 写具体规则或删除 |
 | 这里调用 xxx 方法完成... | 写该调用带来的业务结果 |
+
+<a id="过口语--见到就改"></a>
+
+## 过口语 — 见到就改
+
+与 [comments.md#语气与排版](comments.md#语气与排版) 配套：通俗书面合格，过大白话不合格。
+
+| 禁用倾向 | 改法方向 |
+|----------|----------|
+| 搞一下 / 弄个 / 整一波 / 搞定 | 用具体业务动词：校验、汇总、写入、跳过 |
+| 说白了 / 其实就是 / 挺麻烦的 / 得了 | 删语气词，直接写规则或边界 |
+| 捞出来 / 甩给下游 / 兜底糊过去 | 改为：查询、委托、默认值/降级口径 |
+| 先整一顿 / 随便兜一下 | 写清前置条件与兜底取值 |
+
+```text
+❌ // 先把单子捞出来整一整，没有的跳过得了
+✅ // 只处理待结算单据；已作废记录跳过
+```
 
 <a id="与业务无关的描述--见到就删"></a>
 
@@ -82,10 +104,21 @@
 | `// 用待支付状态作更新条件，防并发重复` | `// 更新状态` |
 | `// 已终态直接返回，避免重复记账` | `// 遍历通知记录` |
 
+<a id="总结性与解释性"></a>
+
+## 总结性 vs 解释性（好 vs 差）
+
+| 层 | 好 | 差 |
+|----|----|-----|
+| 总结性 | `// 组装查询条件并执行检索（含名称高亮）` | `// 处理数据` / `// 调用 search` |
+| 解释性 | `// 中文有序过滤会丢命中，按倍数放大拉取并封顶` | 省略不写；或 `// 设置 fetchSize`（复述代码） |
+| 解释性 | `// 整字段高亮，避免按片段截断名称` | `// 设置 numberOfFragments` |
+| 分隔 | 总结块之间空一行；解释性紧贴难懂行 | 整方法挤成一段、无空行 |
+
 ## 正反例（摘要）
 
-**好**：按分级表补全；Javadoc=口径、步骤块=阶段；块间空行；边界写进步骤注释。  
-**差**：每个 getter 多行 Javadoc；长方法无分块；`// 查询未删除的` / `首先…其次…` / `构建索引供展示`；字段名复述。
+**好**：Javadoc=口径；总结性=阶段（块间空行）；解释性=难懂处为什么；步数按实际。  
+**差**：每个 getter 多行 Javadoc；长方法无分块；只有总结性无解释；机械三步；`首先…其次…`；字段名复述。
 
 体内无分块 → [examples-method-structure.md](examples-method-structure.md)、[method-structure.md](method-structure.md)。
 
@@ -130,8 +163,8 @@ private QueryScope resolveQueryScope(...) { ... }
  * @param e 业务异常
  * @return 失败响应，data 为 null
  */
-@ExceptionHandler(BusinessException.class)
-public R<Void> handleBusinessException(BusinessException e) { ... }
+@ExceptionHandler(BizException.class)
+public R<Void> handleBizException(BizException e) { ... }
 
 /** 创建搜索客户端，基于 Jackson 序列化。 */
 @Bean
@@ -197,6 +230,13 @@ private String comName;
 // 后：支付回调处理；同一 outTradeNo 重复通知时幂等返回，不重复更新订单状态。
 ```
 
+### 2b. 过大白话 → 通俗书面
+
+```java
+// 前：// 先把单子捞出来整一整，没有的跳过得了
+// 后：// 只处理待结算单据；已作废记录跳过
+```
+
 ### 3. 复述代码 → 业务口径
 
 ```java
@@ -211,7 +251,7 @@ private String comName;
 // 后：/** 公司名称短语前缀匹配权重，数值越大排序越靠前 */
 ```
 
-### 5. Controller：Swagger 与 Javadoc 二选一
+### 5. Controller：方法文档二选一；入出参字段必须有文档注解
 
 ```java
 // 前：多行 Javadoc + @ApiOperation 同义双写
@@ -221,6 +261,14 @@ private String comName;
 public R<List<BizVo>> suggest(@Valid SuggestParam param) {
     return R.ok(bizService.suggest(param));
 }
+
+// 差：Param/Vo 只有 Java 字段注释，Knife4j「参数说明」为空
+/** 关键词 */
+private String keyword;
+
+// 好：按项目文档栈写字段注解（OpenAPI3 示意；Swagger2 用 @ApiModelProperty）
+@Schema(description = "补全关键词")
+private String keyword;
 ```
 
 ### 6. 编排类注释
